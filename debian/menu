@@ -1,0 +1,5 @@
+?package(ninja-ide): \
+  needs="X11" \
+  section="Applications/Programming" \
+  title="Ninja-IDE" \
+  command="/usr/bin/ninja-ide"

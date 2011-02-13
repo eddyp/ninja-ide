@@ -1,0 +1,4 @@
+version=3
+opts=uversionmangle=s/b/~b/ \
+http://code.google.com/p/ninja-ide/downloads/list \
+http://ninja-ide.googlecode.com/files/ninja-ide-(\d+.*)\.tar\.gz
