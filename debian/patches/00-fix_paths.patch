@@ -1,0 +1,51 @@
+From: David Paleino <dapal@debian.org>
+Subject: fix paths to point to correct locations
+Forwarded: not-needed
+
+---
+ ninja_ide/doc/startPage.html |    8 ++++----
+ ninja_ide/resources.py       |    7 ++++++-
+ 2 files changed, 10 insertions(+), 5 deletions(-)
+
+--- ninja-ide.orig/ninja_ide/doc/startPage.html
++++ ninja-ide/ninja_ide/doc/startPage.html
+@@ -10,12 +10,12 @@
+ 	<title>sin título</title>
+ 	<meta http-equiv="content-type" content="text/html;charset=utf-8" />
+ 	<meta name="generator" content="Geany 0.18" />
+-    <link href="styles/ninja.css"
++    <link href="/usr/share/ninja-ide/styles/ninja.css"
+         rel="stylesheet" type="text/css" />
+     <script src="twit_posts.txt"></script>
+-    <script type="text/javascript" src="rsc/jquery.js"></script>
+-    <script type="text/javascript" src="rsc/jquery.lavalamp.js"></script>
+-    <script type="text/javascript" src="rsc/jquery.easing.js"></script>
++    <script type="text/javascript" src="/usr/share/javascript/jquery/jquery.js"></script>
++    <script type="text/javascript" src="/usr/share/ninja-ide/js/jquery.lavalamp.js"></script>
++    <script type="text/javascript" src="/usr/share/ninja-ide/js/jquery.easing.js"></script>
+ 
+     <script type="text/javascript">
+     $(function() {
+--- ninja-ide.orig/ninja_ide/resources.py
++++ ninja-ide/ninja_ide/resources.py
+@@ -47,7 +47,7 @@ editor_skins = os.path.join(HOME_NINJA_P
+ 
+ gui_skins = os.path.join(HOME_NINJA_PATH, "extras", "skins", "gui")
+ 
+-start_page_url = os.path.join(PRJ_PATH, "doc", "startPage.html")
++start_page_url = "/usr/share/doc/ninja-ide/startPage.html"
+ 
+ start_page_url_win = os.path.join(PRJ_PATH, "doc", "startPageWin.html")
+ 
+@@ -71,6 +71,11 @@ plugins_doc = "http://code.google.com/p/
+ # IMAGES
+ #===============================================================================
+ 
++##
++# Should be better handled, but we don't want a huge diff.
++##
++
++PRJ_PATH = "/usr/share/ninja-ide/"
+ images = {
+     "splash": os.path.join(PRJ_PATH, "img", "splash.png"),
+     "icon": os.path.join(PRJ_PATH, "img", "icon.png"),
