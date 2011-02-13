@@ -7,6 +7,10 @@
 %:
 	dh $@ 
 
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf setuptools*
+
 override_dh_auto_install:
 	dh_auto_install -- --install-lib /usr/share/ninja-ide
 
