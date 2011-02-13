@@ -1,0 +1,19 @@
+# use glob syntax.
+syntax: glob
+
+*.pyc
+*.nja
+*~
+.config/
+.ninjaproject/
+extras/plugins/
+.*
+
+syntax: regexp
+^build$
+syntax: regexp
+^setuptools_hg-0\.2-py2\.6\.egg$
+syntax: regexp
+^dist$
+syntax: regexp
+^ninja_ide\.egg-info$

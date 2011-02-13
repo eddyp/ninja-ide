@@ -1,0 +1,17 @@
+Metadata-Version: 1.0
+Name: ninja-ide
+Version: 1.0
+Summary: UNKNOWN
+Home-page: http://www.ninja-ide.org.ar
+Author: The Ninja-IDE Team
+Author-email: ninja-ide at googlegroups dot com
+License: GPL3
+Description: UNKNOWN
+Keywords: ide python ninja development
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2

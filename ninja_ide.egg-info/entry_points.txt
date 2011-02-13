@@ -1,0 +1,6 @@
+[console_scripts]
+ninjac = ninja_ide:setup_and_run
+
+[gui_scripts]
+ninja = ninja_ide:setup_and_run
+
