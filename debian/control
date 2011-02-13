@@ -18,7 +18,7 @@ Package: ninja-ide
 Architecture: all
 Depends: ${misc:Depends}
  , ${python:Depends}
-Description: integrated development environment (IDE) for python
+Description: integrated development environment (IDE) for Python
  NINJA-IDE is a cross-platform integrated development environment (IDE).
  It currently features:
   .
