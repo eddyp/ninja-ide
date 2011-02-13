@@ -1,4 +1,3 @@
-ninja_ide/img/ /usr/share/ninja-ide/
 ninja_ide/doc/styles/ /usr/share/ninja-ide/
 ninja_ide/doc/startPage.html /usr/share/doc/ninja-ide/
 ninja_ide/doc/rsc/*.js /usr/share/ninja-ide/js/

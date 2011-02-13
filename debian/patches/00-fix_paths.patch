@@ -4,8 +4,8 @@ Forwarded: not-needed
 
 ---
  ninja_ide/doc/startPage.html |    8 ++++----
- ninja_ide/resources.py       |    7 ++++++-
- 2 files changed, 10 insertions(+), 5 deletions(-)
+ ninja_ide/resources.py       |    2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
 --- ninja-ide.orig/ninja_ide/doc/startPage.html
 +++ ninja-ide/ninja_ide/doc/startPage.html
@@ -37,15 +37,3 @@ Forwarded: not-needed
  
  start_page_url_win = os.path.join(PRJ_PATH, "doc", "startPageWin.html")
  
-@@ -71,6 +71,11 @@ plugins_doc = "http://code.google.com/p/
- # IMAGES
- #===============================================================================
- 
-+##
-+# Should be better handled, but we don't want a huge diff.
-+##
-+
-+PRJ_PATH = "/usr/share/ninja-ide/"
- images = {
-     "splash": os.path.join(PRJ_PATH, "img", "splash.png"),
-     "icon": os.path.join(PRJ_PATH, "img", "icon.png"),

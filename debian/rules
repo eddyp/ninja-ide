@@ -12,7 +12,7 @@ override_dh_auto_clean:
 	rm -rf setuptools*
 
 override_dh_auto_install:
-	dh_auto_install
-	for i in img styles rsc; do \
+	dh_auto_install -- --install-lib /usr/share/ninja-ide
+	for i in styles rsc; do \
 		find $(CURDIR)/debian/ninja-ide -type d -name "$$i" | xargs rm -rf ; \
 	done
