@@ -28,7 +28,7 @@ Description: integrated development environment (IDE) for Python
     for several languages, code completion, code assistant for imports,
     navigation, etc.
   .
-  * project management: NINJA-IDE allows to manage python projects
+  * project management: NINJA-IDE allows to manage Python projects
     automatically, saving descriptive information about them and letting the
     user perform file-management-related tasks in the IDE itself.
   .
