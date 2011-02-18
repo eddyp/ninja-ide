@@ -1,5 +1,5 @@
 ninja-ide (1.0~b2-1) UNRELEASED; urgency=low
 
-  * Initial release (Closes: #nnnn)
+  * Initial release (Closes: #613980)
 
  -- David Paleino <dapal@debian.org>  Sun, 13 Feb 2011 22:03:23 +0100
