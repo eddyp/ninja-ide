@@ -12,15 +12,11 @@ override_dh_auto_clean:
 	rm -rf setuptools*
 
 override_dh_auto_install:
-	dh_auto_install -- --install-lib /usr/share/ninja-ide
+	dh_auto_install -- \
+	    --install-lib /usr/share/ninja-ide \
+	    --install-scripts /usr/share/ninja-ide
 
 	find $(CURDIR)/debian/ninja-ide -type d -name "doc" | xargs rm -rf
-
-	# what's this? :)
-	rm -rf $(CURDIR)/debian/ninja-ide/usr/bin/ninjac
-
-	mv $(CURDIR)/debian/ninja-ide/usr/bin/ninja \
-	   $(CURDIR)/debian/ninja-ide/usr/bin/ninja-ide
 
 	find $(CURDIR)/debian/ -name "*.png" | xargs chmod a-x
 
