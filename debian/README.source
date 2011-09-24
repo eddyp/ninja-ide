@@ -1,8 +1,8 @@
 ninja-ide for Debian
 --------------------
 
- Ninja-IDE has been repackaged to exclude the embedded copies of pyflakes
- and jQuery, and two embedded fonts.
+ Ninja-IDE has been repackaged to exclude the embedded copies of pyflakes,
+ jQuery and Modernizr, and two embedded fonts.
 
  To get the source used for this package, run:
 

@@ -13,8 +13,6 @@ UPVER = $(shell dpkg-parsechangelog | grep ^Version | cut -d\  -f2 | cut -d- -f1
 override_dh_install:
 	dh_install
 	rm -rf $(CURDIR)/debian/ninja-ide/usr/share/ninja-ide/ninja_ide/doc/
-	find $(CURDIR)/debian/ninja-ide -name "*jquery*" -delete
-	find $(CURDIR)/debian/ninja-ide -name "pyflakes" -type d | xargs rm -rf
 
 get-orig-source:
 	uscan \
@@ -28,7 +26,7 @@ get-orig-source:
 	tar xvf ninja-ide_$(UPVER).orig.tar.gz
 	rm ninja-ide_$(UPVER).orig.tar.gz
 	rm -rf ninja-ide-2.0-Beta/ninja_ide/dependencies/pyflakes/
-	rm -rf ninja-ide-2.0-Beta/ninja_ide/doc/js/libs/jquery*
+	rm -rf ninja-ide-2.0-Beta/ninja_ide/doc/js/
 	rm -rf ninja-ide-2.0-Beta/ninja_ide/doc/type/
 
 	tar cf ninja-ide_$(UPVER).orig.tar ninja-ide-2.0-Beta

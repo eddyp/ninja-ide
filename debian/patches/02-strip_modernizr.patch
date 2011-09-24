@@ -1,0 +1,19 @@
+From: David Paleino <dapal@debian.org>
+Subject: don't reference to stripped-from-tarball modernizr
+Origin: vendor
+Forwarded: not-needed
+
+---
+ ninja_ide/doc/startPage.html |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- ninja-ide.orig/ninja_ide/doc/startPage.html
++++ ninja-ide/ninja_ide/doc/startPage.html
+@@ -7,7 +7,6 @@
+   <meta name="author" content="">
+   <meta name="viewport" content="width=device-width,initial-scale=1">
+   <link rel="stylesheet" href="/usr/share/ninja-ide/css/style.css">
+-  <script src="/usr/share/ninja-ide/js/modernizr-2.0.6.min.js"></script>
+ </head>
+ 
+ <body>
