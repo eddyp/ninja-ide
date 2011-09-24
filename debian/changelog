@@ -1,5 +1,5 @@
-ninja-ide (1.0~b2-1) UNRELEASED; urgency=low
+ninja-ide (2.0~b-1) UNRELEASED; urgency=low
 
   * Initial release (Closes: #613980)
 
- -- David Paleino <dapal@debian.org>  Sat, 24 Sep 2011 22:00:24 +0200
+ -- David Paleino <dapal@debian.org>  Sat, 24 Sep 2011 22:01:27 +0200
