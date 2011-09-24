@@ -16,11 +16,13 @@ more enjoyable.
 # CONTACT
 #===============================================================================
 
-HOMPAGE: http://ninja-ide.org.ar
+HOMPAGE: http://ninja-ide.org
 
 CONTACT (Google group): http://groups.google.com/group/ninja-ide
 
 TWITTER: @ninja_ide
+
+IRC: #ninja-ide (at Freenode)
 
 
 #===============================================================================
@@ -29,46 +31,22 @@ TWITTER: @ninja_ide
 
 Python >= 2.6 <= 2.7
 PyQt >= 4.6
-Pygments >= 1.3.1
-Rope 0.9.3
 
 
 #===============================================================================
-# INSTALL
+# RUN NINJA-IDE
 #===============================================================================
-
-* From Sources - Requires setuptools (http://pypi.python.org/pypi/setuptools):
-    
-    1. Go to:
-        http://code.google.com/p/ninja-ide/downloads/list
-    2. Download the las "tar.gz" of ninja.
-    3. Un-compress it.
-    4. Navigate to the folder where the source file is extracted using the 'cd'
-       command.
-    5. Execute with root  privileges:
-        $ python setup.py install
-    6. Eype:
-        $ ninja
-        
 
 * From Sources Portable - Requires full dependencies:
     
     1. Go to:
         http://code.google.com/p/ninja-ide/downloads/list
-    2. Download the las "tar.gz" of ninja.
+    2. Download the last SOURCES package of NINJA-IDE.
     3. Un-compress it.
     4. Navigate to the folder where the source file is extracted using the 'cd'
        command.
     5. type:
-        $ ./ninja.py
-    
-
-* From Pypi - Requires setuptools (http://pypi.python.org/pypi/setuptools)
-    
-    1. Go to the terminal and execute: 
-        $ easy_install ninja-ide
-    
-    Note: This method resolves all dependencies except PyQt.
+        $ python ninja-ide.py
 
 
 * Clone HG Repo - Requires full dependencies and HG ():
@@ -78,12 +56,76 @@ Rope 0.9.3
     2. Execute:
         $ cd ninja-ide
     3. Execute:
-        $ ./ninja.py
+        $ python ninja-ide.py
 
 
 #===============================================================================
 # CHANGELOG
 #===============================================================================
+
+Version 2.0-Beta (Shuriken)
+
+    * NINJA-IDE fully migrated to a new Architecture with a better design.
+    * New Plugins API.
+    * Improves in Performance
+    * Add Web Inspector
+    * Insert import from Everywhere in the document
+    * Find in Files improved
+    * Virtualenv Supported.
+    * Code Locator implemented (Ctrl+K).
+    * Navigation for error trace in Output implemented.
+    * Added: "Find Occurrences" in the Editor Context Menu.
+    * Find function (Ctrl+F) improved to search the word dynamically while the user is typing
+    * Navigate Code using variables and functions as links, with Ctrl+Click or Ctrl+Enter (with the cursor over the text)
+    * Contextual Menu in Tabs to perform quick actions
+    * Code Jumps, Breakpoints and Bookmarks Navigation implemented.
+    * Some new Functionality has been added in Source Menu (move lines with shortcuts, remove line, etc)
+    * Adding error/warning notification icon in Editor Tabs.
+    * Change file syntax dynamically
+    * Tree Symbols implemented.
+    * Count Code Lines
+    * Print Preview
+    * Preferences improved (more options added)
+    * More Functions added to File Context Menu in Tree Explorer
+    * Console apply the same theme as the Editor
+    * Execute files or projects now supports several configurations.
+    * Several new features included in Tree Projects widget context menu.
+    * Recent Project can be docked or removed from the Start Page.
+    * Drag and Drop files in NINJA-IDE improved.
+    * Some new functionality in Pythom embedded console.
+    * Pep8 checker improved (performance).
+    * Errors checker highly improved.
+    * You can change preferences during execution (not restart is required)
+    * Position and Size of the window saved.
+    * Panels sizes saved.
+    * Program executions from NINJA-IDE now allows console inputs.
+    * Manager Profile that allows the user to Group together several projects.
+    * Detect changes in projects folders and automatically refresh the project.
+    * Class Constructor created automatically.
+    * Adding Static and Pep8 errors list to the explorer to access the errors in the files directly.
+    * Params for the execution of a Python program are completely configurable from Preferences.
+    * Native support for several languages Syntax
+    * More Editor schemes added
+    * Change explorer Tabs with: Alt+1...0
+    * Added Find Usages feature in Editor contextual menu
+    * OS look and feel improved.
+    * Added Line and Column position displayer
+    * Added Copy/Paste Historial
+    * Bugs from 1.1 Fixed!
+
+Version 1.1 (Kunai)
+
+    * All Bugs from Version 1.0 fixed (Until April 21st)
+    * Support for Encoding
+    * Save files in another Thread
+    * Added Feature: Jump to Line (Ctrl+J)
+    * Update Notifications fixed.
+    * Show output of Programs executed in NINJA-IDE in real time.
+    * FullScreen Mode (Ctrl+F11)
+    * Added Margin Line to the Editor
+    * Support Translation of the GUI
+    * New Feature: "Find in Files" (Ctrl+L)
+    * New: Easter Egg!! (Find it!)
 
 Version 1.0 (Kunai)
 
