@@ -22,6 +22,7 @@ Depends: ${misc:Depends}
 # really 0.9.3
  , python-rope (>= 0.9.2)
  , libjs-jquery
+ , pyflakes
 Description: integrated development environment (IDE) for Python
  NINJA-IDE is a cross-platform integrated development environment (IDE).
  It currently features:

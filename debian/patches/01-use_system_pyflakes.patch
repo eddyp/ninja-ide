@@ -1,0 +1,20 @@
+From: David Paleino <dapal@debian.org>
+Subject: use system-wide pyflakes
+Origin: vendor
+Forwarded: no
+
+---
+ ninja_ide/gui/editor/errors_checker.py |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- ninja-ide.orig/ninja_ide/gui/editor/errors_checker.py
++++ ninja-ide/ninja_ide/gui/editor/errors_checker.py
+@@ -6,7 +6,7 @@ import compiler
+ from PyQt4.QtCore import QThread
+ 
+ from ninja_ide.core import file_manager
+-from ninja_ide.dependencies.pyflakes import checker
++from pyflakes import checker
+ 
+ 
+ class ErrorsChecker(QThread):
