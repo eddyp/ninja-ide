@@ -10,15 +10,6 @@ Files: debian/*
 Copyright: © 2011, David Paleino <dapal@debian.org>
 License: GPL-3+
 
-#Files: ninja_ide/doc/rsc/jquery.easing.js
-#Copyright: © 2007, George Smith
-#License: MIT
-
-Files: ninja_ide/doc/js/libs/jquery*.js
-Copyright: © 2011, John Resig
- © 2011, The Dojo Foundation
-License: GPL-2+ or MIT
-
 Files: ninja_ide/dependencies/pep8mod.py
 Copyright: © 2006, Johann C. Rocholl <johann@rocholl.net>
 License: MIT
