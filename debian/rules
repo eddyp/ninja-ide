@@ -5,21 +5,11 @@
 #export DH_VERBOSE=1
 
 %:
-	dh $@ 
-
-override_dh_auto_clean:
-	dh_auto_clean
-	rm -rf setuptools*
-
-override_dh_auto_install:
-	dh_auto_install -- \
-	    --install-lib /usr/share/ninja-ide \
-	    --install-scripts /usr/share/ninja-ide
-
-	find $(CURDIR)/debian/ninja-ide -type d -name "doc" | xargs rm -rf
-
-	find $(CURDIR)/debian/ -name "*.png" | xargs chmod a-x
+	dh $@ \
+		--with python2
 
 override_dh_install:
 	dh_install
-	find $(CURDIR)/debian/ninja-ide -type f -name "jquery.js" -delete
+	rm -rf $(CURDIR)/debian/ninja-ide/usr/share/ninja-ide/ninja_ide/doc/
+	find $(CURDIR)/debian/ninja-ide -name "*jquery*" -delete
+	find $(CURDIR)/debian/ninja-ide -name "pyflakes" -type d | xargs rm -rf

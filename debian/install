@@ -1,3 +1,9 @@
-ninja_ide/doc/styles/ /usr/share/ninja-ide/
+ninja_ide/doc/css/ /usr/share/ninja-ide/
+ninja_ide/doc/img/ /usr/share/ninja-ide/
 ninja_ide/doc/startPage.html /usr/share/doc/ninja-ide/
-ninja_ide/doc/rsc/*.js /usr/share/ninja-ide/js/
+ninja_ide/doc/js/libs/*.js /usr/share/ninja-ide/js/
+
+icon.png	/usr/share/ninja-ide/img/
+
+ninja-ide.py	/usr/share/ninja-ide/
+ninja_ide		/usr/share/ninja-ide/

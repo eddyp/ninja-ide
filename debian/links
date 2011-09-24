@@ -1,2 +1,2 @@
 /usr/share/ninja-ide/img/icon.png /usr/share/pixmaps/ninja-ide.png
-/usr/share/ninja-ide/ninja /usr/bin/ninja-ide
+/usr/share/ninja-ide/ninja-ide.py /usr/bin/ninja-ide

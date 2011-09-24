@@ -3,12 +3,13 @@ Section: devel
 Priority: extra
 Maintainer: David Paleino <dapal@debian.org>
 Build-Depends: debhelper (>= 8~)
- , python-support
+ , python (>= 2.6.6-3~)
  , python-setuptools
 Build-Depends-Indep:
- python-qt4 (>= 4.6)
-Standards-Version: 3.9.1
-Homepage: http://ninja-ide.appspot.com/
+ python-qt4 (>= 4.7)
+Standards-Version: 3.9.2
+X-Python-Version: >= 2.6, << 2.7
+Homepage: http://www.ninja-ide.org/
 Vcs-Git: git://git.debian.org/collab-maint/ninja-ide.git
 Vcs-Browser: http://git.debian.org/?p=collab-maint/ninja-ide.git
 
@@ -29,7 +30,7 @@ Description: integrated development environment (IDE) for Python
     for several languages, code completion, code assistant for imports,
     navigation, etc.
   .
-  * project management: NINJA-IDE allows to manage Python projects
+  * project management: NINJA-IDE allows one to manage Python projects
     automatically, saving descriptive information about them and letting the
     user perform file-management-related tasks in the IDE itself.
   .
