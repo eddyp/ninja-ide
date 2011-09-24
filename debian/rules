@@ -29,6 +29,7 @@ get-orig-source:
 	rm ninja-ide_$(UPVER).orig.tar.gz
 	rm -rf ninja-ide-2.0-Beta/ninja_ide/dependencies/pyflakes/
 	rm -rf ninja-ide-2.0-Beta/ninja_ide/doc/js/libs/jquery*
+	rm -rf ninja-ide-2.0-Beta/ninja_ide/doc/type/
 
 	tar cf ninja-ide_$(UPVER).orig.tar ninja-ide-2.0-Beta
 	rm -rf ninja-ide-2.0-Beta
