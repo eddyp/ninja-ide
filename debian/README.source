@@ -1,0 +1,10 @@
+ninja-ide for Debian
+--------------------
+
+ Ninja-IDE has been repackaged to exclude the embedded copies of pyflakes and jQuery.
+
+ To get the source used for this package, run:
+
+   $ debian/rules get-orig-source
+
+ -- David Paleino <dapal@debian.org>  Sat, 24 Sep 2011 23:21:39 +0200

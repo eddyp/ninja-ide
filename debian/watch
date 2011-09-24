@@ -1,4 +1,4 @@
 version=3
-opts=uversionmangle=s/b/~b/ \
+opts=uversionmangle=s/-Beta/~b/ \
 http://code.google.com/p/ninja-ide/downloads/list \
-http://ninja-ide.googlecode.com/files/ninja-ide-(\d+.*)\.tar\.gz
+//ninja-ide.googlecode.com/files/ninja-ide-(\d+[^\-]*\-?[^\-]*)\.zip
