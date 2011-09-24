@@ -1,4 +1,1 @@
-import qt
-
-def setupQt():
-    qt.ide.start()
+# -*- coding: utf-8 *-*
