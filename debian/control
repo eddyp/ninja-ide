@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 8~)
 Build-Depends-Indep:
  python-qt4 (>= 4.7)
 Standards-Version: 3.9.2
-X-Python-Version: >= 2.6, << 2.7
+X-Python-Version: >= 2.6
 Homepage: http://www.ninja-ide.org/
 Vcs-Git: git://git.debian.org/collab-maint/ninja-ide.git
 Vcs-Browser: http://git.debian.org/?p=collab-maint/ninja-ide.git
