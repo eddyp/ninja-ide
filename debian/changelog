@@ -1,3 +1,9 @@
+ninja-ide (2.0~b-3) UNRELEASED; urgency=low
+
+  * Added desktop file (Closes: #643875)
+
+ -- David Paleino <dapal@debian.org>  Fri, 30 Sep 2011 17:38:45 +0200
+
 ninja-ide (2.0~b-2) unstable; urgency=low
 
   [ Margarita Manterola ]

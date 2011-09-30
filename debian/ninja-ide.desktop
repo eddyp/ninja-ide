@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Ninja IDE
+Comment=Python IDE
+Exec=ninja-ide
+Icon=ninja-ide
+Terminal=false
+Type=Application
+Categories=Development;IDE;Qt;
