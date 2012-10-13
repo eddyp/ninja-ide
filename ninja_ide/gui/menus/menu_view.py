@@ -1,3 +1,19 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 from PyQt4.QtGui import QIcon
@@ -9,7 +25,6 @@ from PyQt4.QtCore import QPoint
 from PyQt4.QtCore import Qt
 
 from ninja_ide import resources
-from ninja_ide.core import settings
 
 
 class MenuView(QObject):
@@ -42,10 +57,10 @@ class MenuView(QObject):
             self.tr("Show/Hide &Toolbar"))
         self.hideToolbarAction.setCheckable(True)
         self.fullscreenAction = menuView.addAction(
+            QIcon(resources.IMAGES['fullscreen']),
             self.tr("Full Screen &Mode (%1)").arg(
                 resources.get_shortcut("Full-screen").toString(
                     QKeySequence.NativeText)))
-        self.fullscreenAction.setCheckable(True)
         menuView.addSeparator()
         splitTabHAction = menuView.addAction(
             QIcon(resources.IMAGES['splitH']),
@@ -67,30 +82,33 @@ class MenuView(QObject):
             self.tr("Deactivate Group Tabs"))
         menuView.addSeparator()
         #Zoom
-        zoomInAction = menuView.addAction(
-            self.tr("Zoom &In (%1+Wheel-Up)").arg(settings.OS_KEY))
-        zoomOutAction = menuView.addAction(
-            self.tr("Zoom &Out (%1+Wheel-Down)").arg(settings.OS_KEY))
+        zoomInAction = menuView.addAction(QIcon(resources.IMAGES['zoom-in']),
+            self.tr("Zoom &In (Shift+Wheel-Up)"))
+        zoomOutAction = menuView.addAction(QIcon(resources.IMAGES['zoom-out']),
+            self.tr("Zoom &Out (Shift+Wheel-Down)"))
         menuView.addSeparator()
         fadeInAction = menuView.addAction(self.tr("Fade In (Alt+Wheel-Up)"))
         fadeOutAction = menuView.addAction(
             self.tr("Fade Out (Alt+Wheel-Down)"))
 
-        toolbar.addAction(splitTabHAction)
-        toolbar.addAction(splitTabVAction)
-        toolbar.addAction(followModeAction)
-        toolbar.addSeparator()
+        self.toolbar_items = {
+            'splith': splitTabHAction,
+            'splitv': splitTabVAction,
+            'follow-mode': followModeAction,
+            'zoom-in': zoomInAction,
+            'zoom-out': zoomOutAction}
 
         self.connect(self.hideConsoleAction, SIGNAL("triggered()"),
-            self.__ide.central.change_misc_visibility)
+            self.__ide.actions.view_misc_visibility)
         self.connect(self.hideEditorAction, SIGNAL("triggered()"),
-            self.__ide.central.change_main_visibility)
+            self.__ide.actions.view_main_visibility)
         self.connect(self.hideExplorerAction, SIGNAL("triggered()"),
-            self.__ide.central.change_explorer_visibility)
+            self.__ide.actions.view_explorer_visibility)
         self.connect(self.hideAllAction, SIGNAL("triggered()"),
             self.__ide.actions.hide_all)
         self.connect(self.fullscreenAction, SIGNAL("triggered()"),
             self.__ide.actions.fullscreen_mode)
+
         self.connect(splitTabHAction, SIGNAL("triggered()"),
             lambda: self.__ide.mainContainer.split_tab(True))
         self.connect(splitTabVAction, SIGNAL("triggered()"),
@@ -109,6 +127,13 @@ class MenuView(QObject):
             self.__ide.actions.group_tabs_together)
         self.connect(deactivateGroupTabsAction, SIGNAL("triggered()"),
             self.__ide.actions.deactivate_tabs_groups)
+
+        #Set proper MenuView checks values:
+        self.hideAllAction.setChecked(True)
+        self.hideConsoleAction.setChecked(False)
+        self.hideEditorAction.setChecked(True)
+        self.hideExplorerAction.setChecked(True)
+        self.hideToolbarAction.setChecked(True)
 
     def _hide_show_toolbar(self):
         if self.__ide.toolbar.isVisible():

@@ -1,3 +1,20 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
+
 import os
 try:
     import json
@@ -7,13 +24,17 @@ except ImportError:
 from ninja_ide import resources
 from ninja_ide.core import settings
 
+from ninja_ide.tools.logger import NinjaLogger
+
+logger = NinjaLogger('ninja_ide.tools.json_manager')
+
 
 def parse(descriptor):
     try:
         return json.load(descriptor)
     except:
-        print "The file couldn't be parsed'"
-        print descriptor
+        logger.error("The file couldn't be parsed'")
+        logger.error(descriptor)
     return {}
 
 
@@ -28,8 +49,9 @@ def load_syntax():
             read.close()
             name = f[:-5]
             settings.SYNTAX[name] = structure
-            ext = structure.get('extension', 'py')[0]
-            settings.EXTENSIONS[ext] = name
+            for ext in structure.get('extension'):
+                if ext is not None:
+                    settings.EXTENSIONS[ext] = name
 
 
 def create_ninja_project(path, project, structure):
@@ -93,20 +115,6 @@ def json_to_dict(fileName):
     return structure
 
 
-def load_gui_skins():
-    files = os.listdir(resources.GUI_SKINS)
-    skins = {}
-    for f in files:
-        if f.endswith('.skin'):
-            fileName = os.path.join(resources.GUI_SKINS, f)
-            read = open(fileName, 'r')
-            content = ''.join(read.readlines())
-            read.close()
-            name = f[:-5]
-            skins[name] = content
-    return skins
-
-
 def load_editor_skins():
     files = os.listdir(resources.EDITOR_SKINS)
     skins = {}
@@ -120,3 +128,9 @@ def load_editor_skins():
             name = unicode(f[:-6])
             skins[name] = structure
     return skins
+
+
+def save_editor_skins(filename, scheme):
+    f = open(filename, mode='w')
+    json.dump(scheme, f, indent=2)
+    f.close()

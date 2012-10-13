@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 import time
@@ -15,15 +30,18 @@ from PyQt4.QtGui import QTextCursor
 from PyQt4.QtGui import QTextCharFormat
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QProcess
+from PyQt4.QtCore import QProcessEnvironment
+from PyQt4.QtCore import QFile
 from PyQt4.QtCore import SIGNAL
 
 from ninja_ide.core import settings
 from ninja_ide.core import file_manager
-from ninja_ide.tools import styles
 from ninja_ide.gui.main_panel import main_container
 
 
 class RunWidget(QWidget):
+
+    """Widget that show the execution output in the MiscContainer."""
 
     def __init__(self):
         QWidget.__init__(self)
@@ -40,58 +58,172 @@ class RunWidget(QWidget):
         vbox.addLayout(hbox)
 
         #process
+        self.currentProcess = None
+        self.__preScriptExecuted = False
         self._proc = QProcess(self)
+        self._preExecScriptProc = QProcess(self)
+        self._postExecScriptProc = QProcess(self)
         self.connect(self._proc, SIGNAL("readyReadStandardOutput()"),
             self.output._refresh_output)
         self.connect(self._proc, SIGNAL("readyReadStandardError()"),
             self.output._refresh_error)
         self.connect(self._proc, SIGNAL("finished(int, QProcess::ExitStatus)"),
             self.finish_execution)
+        self.connect(self._proc, SIGNAL("error(QProcess::ProcessError)"),
+            self.process_error)
         self.connect(self.input, SIGNAL("returnPressed()"), self.insert_input)
+        self.connect(self._preExecScriptProc,
+            SIGNAL("finished(int, QProcess::ExitStatus)"),
+            self.__main_execution)
+        self.connect(self._preExecScriptProc,
+            SIGNAL("readyReadStandardOutput()"), self.output._refresh_output)
+        self.connect(self._preExecScriptProc,
+            SIGNAL("readyReadStandardError()"), self.output._refresh_error)
+        self.connect(self._postExecScriptProc,
+            SIGNAL("finished(int, QProcess::ExitStatus)"),
+            self.__post_execution_message)
+        self.connect(self._postExecScriptProc,
+            SIGNAL("readyReadStandardOutput()"), self.output._refresh_output)
+        self.connect(self._postExecScriptProc,
+            SIGNAL("readyReadStandardError()"), self.output._refresh_error)
 
-    def finish_execution(self, exitCode, exitStatus):
+    def process_error(self, error):
+        """Listen to the error signals from the running process."""
         self.lblInput.hide()
         self.input.hide()
-        format = QTextCharFormat()
-        format.setAnchor(True)
+        self._proc.kill()
+        format_ = QTextCharFormat()
+        format_.setAnchor(True)
+        format_.setForeground(Qt.red)
+        if error == 0:
+            self.output.textCursor().insertText(self.tr('Failed to start'),
+                format_)
+        else:
+            self.output.textCursor().insertText(
+                self.tr('Error during execution, QProcess error: %d' % error),
+                format_)
+
+    def finish_execution(self, exitCode, exitStatus):
+        """Print a message and hide the input line when the execution ends."""
+        self.lblInput.hide()
+        self.input.hide()
+        format_ = QTextCharFormat()
+        format_.setAnchor(True)
         self.output.textCursor().insertText('\n\n')
         if exitStatus == QProcess.NormalExit:
-            format.setForeground(Qt.green)
+            format_.setForeground(Qt.green)
             self.output.textCursor().insertText(
-                self.tr("Execution Successful!"), format)
+                self.tr("Execution Successful!"), format_)
         else:
-            format.setForeground(Qt.red)
+            format_.setForeground(Qt.red)
             self.output.textCursor().insertText(
-                self.tr("Execution Interrupted"), format)
+                self.tr("Execution Interrupted"), format_)
+        self.output.textCursor().insertText('\n\n')
+        self.__post_execution()
 
     def insert_input(self):
+        """Take the user input and send it to the process."""
         text = self.input.text() + '\n'
         self._proc.writeData(text)
-        self.output.insert_input(text)
+        self.output.textCursor().insertText(text, self.output.plain_format)
         self.input.setText("")
 
-    def start_process(self, fileName, pythonPath=False, programParams=''):
+    def start_process(self, fileName, pythonPath=False, PYTHONPATH=None,
+        programParams='', preExec='', postExec=''):
+
+        """Prepare the output widget and start the process."""
         self.lblInput.show()
         self.input.show()
+        self.fileName = fileName
+        self.pythonPath = pythonPath  # FIXME, this is python interpreter
+        self.programParams = programParams
+        self.preExec = preExec
+        self.postExec = postExec
+        self.PYTHONPATH = PYTHONPATH
+
+        self.__pre_execution()
+
+    def __main_execution(self):
+        """Execute the project."""
         self.output.setCurrentCharFormat(self.output.plain_format)
-        self.output.setPlainText('Running: %s (%s)\n\n' % (fileName,
-            unicode(time.ctime())))
+        message = ''
+        if self.__preScriptExecuted:
+            self.__preScriptExecuted = False
+            message = self.tr(
+                "Pre Execution Script Successfully executed.\n\n")
+        self.output.setPlainText(message + 'Running: %s (%s)\n\n' %
+            (self.fileName, unicode(time.ctime())))
         self.output.moveCursor(QTextCursor.Down)
         self.output.moveCursor(QTextCursor.Down)
         self.output.moveCursor(QTextCursor.Down)
 
         #runner.run_code_from_file(fileName)
-        if not pythonPath:
-            pythonPath = settings.PYTHON_PATH
+        if not self.pythonPath:
+            self.pythonPath = settings.PYTHON_PATH
         #change the working directory to the fileName dir
-        file_directory = file_manager.get_folder(fileName)
+        file_directory = file_manager.get_folder(self.fileName)
         self._proc.setWorkingDirectory(file_directory)
         #force python to unbuffer stdin and stdout
         options = ['-u'] + settings.EXECUTION_OPTIONS.split()
-        self._proc.start(pythonPath, options + [fileName] + \
-            [p.strip() for p in programParams.split(',') if p])
+        self.currentProcess = self._proc
+
+        if self.PYTHONPATH:
+            envpaths = [path for path in self.PYTHONPATH.splitlines()]
+            env = QProcessEnvironment()
+            system_environemnt = self._proc.systemEnvironment()
+            for e in system_environemnt:
+                key, value = unicode(e).split('=', 1)
+                env.insert(key, value)
+            for path in envpaths:
+                env.insert('PYTHONPATH', path)
+            self._proc.setProcessEnvironment(env)
+
+        self._proc.start(self.pythonPath, options + [self.fileName] + \
+            [p.strip() for p in self.programParams.split(',') if p])
+
+    def __pre_execution(self):
+        """Execute a script before executing the project."""
+        filePreExec = QFile(self.preExec)
+        if filePreExec.exists() and \
+          bool(QFile.ExeUser & filePreExec.permissions()):
+            ext = file_manager.get_file_extension(self.preExec)
+            if not self.pythonPath:
+                self.pythonPath = settings.PYTHON_PATH
+            self.currentProcess = self._preExecScriptProc
+            self.__preScriptExecuted = True
+            if ext == 'py':
+                self._preExecScriptProc.start(self.pythonPath, [self.preExec])
+            else:
+                self._preExecScriptProc.start(self.preExec)
+        else:
+            self.__main_execution()
+
+    def __post_execution(self):
+        """Execute a script after executing the project."""
+        filePostExec = QFile(self.postExec)
+        if filePostExec.exists() and \
+          bool(QFile.ExeUser & filePostExec.permissions()):
+            ext = file_manager.get_file_extension(self.postExec)
+            if not self.pythonPath:
+                self.pythonPath = settings.PYTHON_PATH
+            self.currentProcess = self._postExecScriptProc
+            if ext == 'py':
+                self._postExecScriptProc.start(self.pythonPath,
+                    [self.postExec])
+            else:
+                self._postExecScriptProc.start(self.postExec)
+
+    def __post_execution_message(self):
+        """Print post execution message."""
+        self.output.textCursor().insertText('\n\n')
+        format_ = QTextCharFormat()
+        format_.setAnchor(True)
+        format_.setForeground(Qt.green)
+        self.output.textCursor().insertText(
+            self.tr("Post Execution Script Successfully executed."), format_)
 
     def kill_process(self):
+        """Kill the running process."""
         self._proc.kill()
 
 
@@ -101,7 +233,6 @@ class OutputWidget(QPlainTextEdit):
         QPlainTextEdit.__init__(self, parent)
         self._parent = parent
         self.setReadOnly(True)
-        styles.set_style(self, 'editor')
         self.maxValue = 0
         self.actualValue = 0
         #traceback pattern
@@ -119,25 +250,34 @@ class OutputWidget(QPlainTextEdit):
         self.connect(self, SIGNAL("blockCountChanged(int)"), self._scroll_area)
 
     def _scroll_area(self):
+        """When new text is added to the widget, move the scroll to the end."""
         if self.actualValue == self.maxValue:
             self.moveCursor(QTextCursor.End)
 
     def mousePressEvent(self, event):
+        """
+        When the execution fail, allow to press the links in the traceback,
+        to go to the line when the error occur.
+        """
         QPlainTextEdit.mousePressEvent(self, event)
         self.go_to_error(event)
 
     def _refresh_output(self):
+        """Read the output buffer from the process and append the text."""
         #we should decode the bytes!
-        text = self._parent._proc.readAllStandardOutput().data().decode('utf8')
+        currentProcess = self._parent.currentProcess
+        text = currentProcess.readAllStandardOutput().data().decode('utf8')
         verticalScroll = self.verticalScrollBar()
         self.actualValue = verticalScroll.value()
         self.maxValue = verticalScroll.maximum()
-        self.textCursor().insertText(text)
+        self.textCursor().insertText(text, self.plain_format)
 
     def _refresh_error(self):
+        """Read the error buffer from the process and append the text."""
         #we should decode the bytes!
         cursor = self.textCursor()
-        text = self._parent._proc.readAllStandardError().data().decode('utf8')
+        currentProcess = self._parent.currentProcess
+        text = currentProcess.readAllStandardError().data().decode('utf8')
         text_lines = text.split('\n')
         verticalScroll = self.verticalScrollBar()
         self.actualValue = verticalScroll.value()
@@ -149,10 +289,8 @@ class OutputWidget(QPlainTextEdit):
             else:
                 cursor.insertText(t, self.plain_format)
 
-    def insert_input(self, text):
-        self.textCursor().insertText(text)
-
     def go_to_error(self, event):
+        """Resolve the link and take the user to the error line."""
         cursor = self.cursorForPosition(event.pos())
         text = cursor.block().text()
         if self.patLink.match(text):
@@ -174,6 +312,7 @@ class OutputWidget(QPlainTextEdit):
         return (file_name, lineno)
 
     def contextMenuEvent(self, event):
+        """Show a context menu for the Plain Text widget."""
         popup_menu = self.createStandardContextMenu()
 
         menuOutput = QMenu(self.tr("Output"))
@@ -181,6 +320,9 @@ class OutputWidget(QPlainTextEdit):
         popup_menu.insertSeparator(popup_menu.actions()[0])
         popup_menu.insertMenu(popup_menu.actions()[0], menuOutput)
 
-        self.connect(cleanAction, SIGNAL("triggered()"), self.clear)
+        # This is a hack because if we leave the widget text empty
+        # it throw a violent segmentation fault in start_process
+        self.connect(cleanAction, SIGNAL("triggered()"),
+            lambda: self.setPlainText('\n\n'))
 
         popup_menu.exec_(event.globalPos())

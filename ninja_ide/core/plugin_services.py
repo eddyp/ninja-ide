@@ -1,4 +1,19 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
 
@@ -7,6 +22,8 @@ from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import pyqtSignal
 
 from ninja_ide.core import settings
+from ninja_ide.core import file_manager
+from ninja_ide.core import plugin_util
 from ninja_ide.gui.main_panel import itab_item
 from ninja_ide.gui.main_panel import main_container
 from ninja_ide.gui import actions
@@ -22,28 +39,47 @@ class MainService(QObject):
     """
     Main Interact whith NINJA-IDE
     """
-    #SIGNALS
+    # SIGNALS
     editorKeyPressEvent = pyqtSignal("QEvent")
+    beforeFileSaved = pyqtSignal("QString")
     fileSaved = pyqtSignal("QString")
     currentTabChanged = pyqtSignal("QString")
-    executeFile = pyqtSignal("QString")
-    executeProject = pyqtSignal("QString")
+    fileExecuted = pyqtSignal("QString")
+    fileOpened = pyqtSignal("QString")
 
     def __init__(self):
         QObject.__init__(self)
         self._main = main_container.MainContainer()
         self._action = actions.Actions()
+        self._explorer = explorer_container.ExplorerContainer()
         #Connect signals
         self.connect(self._main, SIGNAL("editorKeyPressEvent(QEvent)"),
             self._keyPressEvent)
+        self.connect(self._main, SIGNAL("beforeFileSaved(QString)"),
+            self._beforeFileSaved)
         self.connect(self._main, SIGNAL("fileSaved(QString)"),
             self._fileSaved)
         self.connect(self._main, SIGNAL("currentTabChanged(QString)"),
             self._currentTabChanged)
-        self.connect(self._action, SIGNAL("executeFile(QString)"),
-            self._executeFile)
-        self.connect(self._action, SIGNAL("executeProject(QString)"),
-            self._executeProject)
+        self.connect(self._action, SIGNAL("fileExecuted(QString)"),
+            self._fileExecuted)
+        self.connect(self._main, SIGNAL("fileOpened(QString)"),
+            self._fileOpened)
+
+###############################################################################
+# Get main GUI Objects
+###############################################################################
+
+    def get_tab_manager(self):
+        """
+        Returns the TabWidget (ninja_ide.gui.main_panel.tab_widget.TabWidget)
+        subclass of QTabWidget
+        """
+        return self._main.actualTab
+
+###############################################################################
+# END main GUI Objects
+###############################################################################
 
     def add_menu(self, menu, lang=".py"):
         """
@@ -60,12 +96,44 @@ class MainService(QObject):
         return [doc_data[0] for doc_list in documents_data
                     for doc_data in doc_list]
 
+    def get_project_owner(self, editorWidget=None):
+        """
+        Return the project where this file belongs, or an empty string.
+        """
+        #if not editor try to get the current
+        if editorWidget is None:
+            editorWidget = self._main.get_actual_editor()
+        belongs = ''
+        if editorWidget is None:
+            return belongs
+        #get the opened projects
+        opened_projects_obj = self._explorer.get_opened_projects()
+        for project in opened_projects_obj:
+            if file_manager.belongs_to_folder(project.path, editorWidget.ID):
+                belongs = project.path
+                break
+        return belongs
+
+    def get_file_syntax(self, editorWidget=None):
+        """Return the syntax for this file -> {}."""
+        if editorWidget is None:
+            editorWidget = self._main.get_actual_editor()
+
+        if editorWidget is not None:
+            ext = file_manager.get_file_extension(editorWidget.ID)
+            lang = settings.EXTENSIONS.get(ext, '')
+            syntax = settings.SYNTAX.get(lang, {})
+            return syntax
+        return {}
+
     def add_editor(self, fileName="", content=None, syntax=None):
         """
         Create a new editor
         """
-        return self._main.add_editor(fileName=fileName, content=content,
-                                        syntax=syntax)
+        editor = self._main.add_editor(fileName=fileName, syntax=syntax)
+        if content:
+            editor.setPlainText(content)
+        return editor
 
     def get_editor(self):
         """
@@ -82,6 +150,17 @@ class MainService(QObject):
         editor = self._main.get_actual_editor()
         if editor:
             return editor.ID
+        return None
+
+    def get_editor_encoding(self, editorWidget=None):
+        """
+        Returns the editor encoding
+        """
+        if editorWidget is None:
+            editorWidget = self._main.get_actual_editor()
+
+        if editorWidget is not None:
+            return editorWidget.encoding
         return None
 
     def get_text(self):
@@ -111,7 +190,7 @@ class MainService(QObject):
         """
         editor = self._main.get_actual_editor()
         if editor:
-            editor.textCursor().insertText(text)
+            editor.insertPlainText(text)
 
     def jump_to_line(self, lineno):
         """
@@ -145,7 +224,7 @@ class MainService(QObject):
         """
         Open a single file, if the file is already open it get focus
         """
-        self._main.open_file(fileName=fileName, cursorPosition=cursorPosition,
+        self._main.open_file(filename=fileName, cursorPosition=cursorPosition,
                                 positionIsLineNumber=positionIsLineNumber)
 
     def open_image(self, filename):
@@ -157,11 +236,10 @@ class MainService(QObject):
     def get_actual_tab(self):
         """
         Returns the actual widget
-        (instance of ninja_ide.gui.main_panel.tab_widget.TabWidget)
         """
         return self._main.get_actual_widget()
 
-    #SIGNALS
+    # SIGNALS
     def _keyPressEvent(self, qEvent):
         """
         Emit the signal when a key is pressed
@@ -169,17 +247,36 @@ class MainService(QObject):
         """
         self.editorKeyPressEvent.emit(qEvent)
 
+    def _beforeFileSaved(self, fileName):
+        """
+        Signal emitted before save a file
+        """
+        self.beforeFileSaved.emit(fileName)
+
     def _fileSaved(self, fileName):
+        """
+        Signal emitted after save a file
+        """
+        fileName = unicode(fileName.split(":")[-1]).strip()
         self.fileSaved.emit(fileName)
 
     def _currentTabChanged(self, fileName):
+        """
+        Signal emitted when the current tab changes
+        """
         self.currentTabChanged.emit(fileName)
 
-    def _executeFile(self, fileName):
-        self.executeFile.emit(fileName)
+    def _fileExecuted(self, fileName):
+        """
+        Signal emitted when the file is executed
+        """
+        self.fileExecuted.emit(fileName)
 
-    def _executeProject(self, projectName):
-        self.executeProject.emit(projectName)
+    def _fileOpened(self, fileName):
+        """
+        Signal emitted when the file is opened
+        """
+        self.fileOpened.emit(fileName)
 
 
 class ToolbarService(QObject):
@@ -195,6 +292,7 @@ class ToolbarService(QObject):
         Add an action to the Toolbar
         @action: Should be an instance(or subclass) of QAction
         """
+        settings.add_toolbar_item_for_plugins(action)
         self._toolbar.addAction(action)
 
 
@@ -253,7 +351,7 @@ class MenuAppService(QObject):
 #        Add a new Symbol's handler for the given file extension
 #        example:
 #            cpp_symbols_handler = CppSymbolHandler(...)
-#            set_symbols_handler('.cpp', cpp_symbols_handler)
+#            set_symbols_handler('cpp', cpp_symbols_handler)
 #        Then all symbols in .cpp files will be handle by cpp_symbols_handler
 #
 #        Note: symbols_handler SHOULD have a special interface see
@@ -273,10 +371,18 @@ class MiscContainerService(QObject):
 
 
 class ExplorerService(QObject):
+    # SIGNALS
+    projectOpened = pyqtSignal("QString")
+    projectExecuted = pyqtSignal("QString")
 
     def __init__(self):
         QObject.__init__(self)
         self._explorer = explorer_container.ExplorerContainer()
+        self._action = actions.Actions()
+        self.connect(self._explorer, SIGNAL("projectOpened(QString)"),
+            self._projectOpened)
+        self.connect(self._action, SIGNAL("projectExecuted(QString)"),
+            self._projectExecuted)
 
     def get_tree_projects(self):
         """
@@ -284,12 +390,27 @@ class ExplorerService(QObject):
         """
         return self._explorer._treeProjects
 
+    def get_item(self, path):
+        if self._explorer._treeProjects:
+            return self._explorer._treeProjects.get_item_for_path(path)
+
     def get_current_project_item(self):
         """
         Returns the current item of the tree projects
-        this methos is a shortcut of self.get_tree_projects().currentItem()
+        this method is a shortcut of self.get_tree_projects().currentItem()
         """
-        return self._explorer._treeProjects.currentItem()
+        if self._explorer._treeProjects:
+            return self._explorer._treeProjects.currentItem()
+        return None
+
+    def get_project_item_by_name(self, projectName):
+        """
+        Return a ProjectItem that has the name provided.
+        """
+        if self._explorer._treeProjects:
+            return self._explorer._treeProjects.get_project_by_name(
+                projectName)
+        return None
 
     def get_tree_symbols(self):
         """
@@ -302,7 +423,7 @@ class ExplorerService(QObject):
         Add a new Symbol's handler for the given file extension
         example:
             cpp_symbols_handler = CppSymbolHandler(...)
-            set_symbols_handler('.cpp', cpp_symbols_handler)
+            set_symbols_handler('cpp', cpp_symbols_handler)
         Then all symbols in .cpp files will be handle by cpp_symbols_handler
 
         Note: symbols_handler SHOULD have a special interface see
@@ -338,10 +459,44 @@ class ExplorerService(QObject):
         """
         return self._explorer.get_actual_project()
 
+    def get_opened_projects(self):
+        """
+        Return the opened projects in the Tree Project Explorer.
+        list of <ninja_ide.gui.explorer.tree_projects_widget.ProjectTree>
+        """
+        opened_projects = self._explorer.get_opened_projects()
+        return opened_projects
+
     def add_project_menu(self, menu, lang='all'):
         """
         Add an extra menu to the project explorer for the files
         with the given extension.
         @lang: String with file extension format (py, php, json)
         """
-        self._explorer._treeProjects.add_extra_menu(menu, lang=lang)
+        if self._explorer._treeProjects:
+            self._explorer._treeProjects.add_extra_menu(menu, lang=lang)
+
+    def add_project_menu_by_scope(self, menu, scope=None):
+        """
+        Add an extra menu to the project explorer to the specific scope
+        @scope: String with the menu scope (all, project, folder, file)
+        """
+        if scope is None:
+            #default behavior show ALL
+            scope = plugin_util.ContextMenuScope(project=True, folder=True,
+                files=True)
+        if self._explorer._treeProjects:
+            self._explorer._treeProjects.add_extra_menu_by_scope(menu, scope)
+
+    # SIGNALS
+    def _projectOpened(self, projectPath):
+        """
+        Signal emitted when the project is opened
+        """
+        self.projectOpened.emit(projectPath)
+
+    def _projectExecuted(self, projectPath):
+        """
+        Signal emitted when the project is executed
+        """
+        self.projectExecuted.emit(projectPath)

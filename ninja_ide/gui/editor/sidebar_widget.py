@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 import math
@@ -28,35 +43,20 @@ class SidebarWidget(QWidget):
 
     def __init__(self, editor):
         QWidget.__init__(self, editor)
-        editor.installEventFilter(self)
-        editor.viewport().installEventFilter(self)
         self.edit = editor
         self.highest_line = 0
         self.foldArea = 15
         self.rightArrowIcon = QPixmap()
         self.downArrowIcon = QPixmap()
-        self.pat = re.compile('(\s)*def|(\s)*class|(\s)*#begin-fold:|(.)*{$')
+        self.pat = re.compile('(\s)*def |(\s)*class |(\s)*#begin-fold:')
+        self.patNotPython = re.compile('(\s)*#begin-fold:|(.)*{$')
         self._foldedBlocks = []
         self._breakpoints = []
         self._bookmarks = []
         self._pep8Lines = []
         self._errorsLines = []
-        css = '''
-        QWidget {
-          font-family: monospace;
-          font-size: 10;
-          color: black;
-        }'''
-        self.setStyleSheet(css)
 
-    def eventFilter(self, obj, event):
-        if obj is self.edit.viewport():
-            self.update()
-        if obj is self.edit:
-            self.setFixedHeight(self.edit.height())
-        return False
-
-    def update(self, *args):
+    def update_area(self):
         maxLine = math.ceil(math.log10(self.edit.blockCount()))
         width = QFontMetrics(
             self.edit.document().defaultFont()).width('0' * int(maxLine)) \
@@ -64,6 +64,9 @@ class SidebarWidget(QWidget):
         if self.width() != width:
             self.setFixedWidth(width)
             self.edit.setViewportMargins(width, 0, 0, 0)
+        self.update()
+
+    def update(self, *args):
         QWidget.update(self, *args)
 
     def pep8_check_lines(self, lines):
@@ -170,9 +173,18 @@ class SidebarWidget(QWidget):
         font_metrics = QFontMetrics(self.edit.document().defaultFont())
         current_block = self.edit.document().findBlock(
             self.edit.textCursor().position())
+        pattern = self.pat if self.edit.lang == "python" else self.patNotPython
 
         painter = QPainter(self)
-        painter.fillRect(self.rect(), Qt.lightGray)
+        background = resources.CUSTOM_SCHEME.get('sidebar-background',
+            resources.COLOR_SCHEME['sidebar-background'])
+        foreground = resources.CUSTOM_SCHEME.get('sidebar-foreground',
+            resources.COLOR_SCHEME['sidebar-foreground'])
+        pep8color = resources.CUSTOM_SCHEME.get('pep8-underline',
+            resources.COLOR_SCHEME['pep8-underline'])
+        errorcolor = resources.CUSTOM_SCHEME.get('error-underline',
+            resources.COLOR_SCHEME['error-underline'])
+        painter.fillRect(self.rect(), QColor(background))
 
         block = self.edit.firstVisibleBlock()
         viewport_offset = self.edit.contentOffset()
@@ -189,22 +201,24 @@ class SidebarWidget(QWidget):
 
             # Set the Painter Pen depending on special lines
             error = False
-            if line_count in self._pep8Lines:
-                painter.setPen(Qt.darkYellow)
+            if settings.CHECK_STYLE and \
+               ((line_count - 1) in self._pep8Lines):
+                painter.setPen(QColor(pep8color))
                 font = painter.font()
                 font.setItalic(True)
                 font.setUnderline(True)
                 painter.setFont(font)
                 error = True
-            elif line_count in self._errorsLines:
-                painter.setPen(Qt.red)
+            elif settings.FIND_ERRORS and \
+                 ((line_count - 1) in self._errorsLines):
+                painter.setPen(QColor(errorcolor))
                 font = painter.font()
                 font.setItalic(True)
                 font.setUnderline(True)
                 painter.setFont(font)
                 error = True
             else:
-                painter.setPen(Qt.black)
+                painter.setPen(QColor(foreground))
 
             # We want the line number for the selected line to be bold.
             bold = False
@@ -282,7 +296,7 @@ class SidebarWidget(QWidget):
             if position.y() > page_bottom:
                 break
 
-            if self.pat.match(unicode(block.text())) and block.isVisible():
+            if pattern.match(unicode(block.text())) and block.isVisible():
                 if block.blockNumber() in self._foldedBlocks:
                     painter.drawPixmap(xofs, round(position.y()),
                         self.rightArrowIcon)
@@ -332,6 +346,9 @@ class SidebarWidget(QWidget):
             lineNumber = 0
 
             if event.pos().x() > xofs:
+                pattern = self.pat
+                if self.edit.lang != "python":
+                    pattern = self.patNotPython
                 block = self.edit.firstVisibleBlock()
                 viewport_offset = self.edit.contentOffset()
                 page_bottom = self.edit.viewport().height()
@@ -341,7 +358,7 @@ class SidebarWidget(QWidget):
                     if position.y() > page_bottom:
                         break
                     if position.y() < ys and (position.y() + fh) > ys and \
-                      self.pat.match(str(block.text())):
+                      pattern.match(str(block.text())):
                         lineNumber = block.blockNumber() + 1
                         break
                     elif position.y() < ys and (position.y() + fh) > ys and \
@@ -368,11 +385,11 @@ class SidebarWidget(QWidget):
                 self.code_folding_event(lineNumber)
 
     def _save_breakpoints_bookmarks(self):
-        if self._bookmarks:
+        if self._bookmarks and self.edit.ID != "":
             settings.BOOKMARKS[self.edit.ID] = self._bookmarks
         elif self.edit.ID in settings.BOOKMARKS:
             settings.BOOKMARKS.pop(self.edit.ID)
-        if self._breakpoints:
+        if self._breakpoints and self.edit.ID != "":
             settings.BREAKPOINTS[self.edit.ID] = self._breakpoints
         elif self.edit.ID in settings.BREAKPOINTS:
             settings.BREAKPOINTS.pop(self.edit.ID)

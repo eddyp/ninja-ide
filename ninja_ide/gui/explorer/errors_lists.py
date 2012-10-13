@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 from PyQt4.QtGui import QWidget
@@ -25,7 +40,9 @@ class ErrorsWidget(QWidget):
 
         vbox = QVBoxLayout(self)
         self.listErrors = QListWidget()
+        self.listErrors.setSortingEnabled(True)
         self.listPep8 = QListWidget()
+        self.listPep8.setSortingEnabled(True)
         self.errorsLabel = QLabel(self.tr(ERRORS_TEXT).arg(0))
         vbox.addWidget(self.errorsLabel)
         vbox.addWidget(self.listErrors)
@@ -41,29 +58,37 @@ class ErrorsWidget(QWidget):
     def errors_selected(self):
         editorWidget = main_container.MainContainer().get_actual_editor()
         if editorWidget and self._outRefresh:
-            editorWidget.jump_to_line(
-                self.listErrors.currentItem().data(Qt.UserRole).toInt()[0] - 1)
+            lineno = self.listErrors.currentItem().data(Qt.UserRole).toInt()[0]
+            editorWidget.jump_to_line(lineno)
+            editorWidget.setFocus()
 
     def pep8_selected(self):
         editorWidget = main_container.MainContainer().get_actual_editor()
         if editorWidget and self._outRefresh:
-            editorWidget.jump_to_line(
-                self.pep8.pep8lines[self.listPep8.currentRow()] - 1)
+            lineno = self.listPep8.currentItem().data(Qt.UserRole).toInt()[0]
+            editorWidget.jump_to_line(lineno)
+            editorWidget.setFocus()
 
-    def refresh_lists(self, errors, pe):
-        self.pep8 = pe
+    def refresh_lists(self, errors, pep8):
         self._outRefresh = False
         self.listErrors.clear()
         self.listPep8.clear()
-        for data in errors.errorsLines:
-            item = QListWidgetItem(errors.errorsSummary[data])
-            item.setData(Qt.UserRole, data)
-            self.listErrors.addItem(item)
+        for lineno in errors.errorsSummary:
+            linenostr = 'L%s\t' % str(lineno + 1)
+            for data in errors.errorsSummary[lineno]:
+                item = QListWidgetItem(linenostr + data)
+                item.setToolTip(linenostr + data)
+                item.setData(Qt.UserRole, lineno)
+                self.listErrors.addItem(item)
         self.errorsLabel.setText(self.tr(ERRORS_TEXT).arg(
-            len(errors.errorsLines)))
-        for data in self.pep8.pep8checks:
-            item = QListWidgetItem(data.split('\n')[0])
-            self.listPep8.addItem(item)
+            len(errors.errorsSummary)))
+        for lineno in pep8.pep8checks:
+            linenostr = 'L%s\t' % str(lineno + 1)
+            for data in pep8.pep8checks[lineno]:
+                item = QListWidgetItem(linenostr + data.split('\n')[0])
+                item.setToolTip(linenostr + data.split('\n')[0])
+                item.setData(Qt.UserRole, lineno)
+                self.listPep8.addItem(item)
         self.pep8Label.setText(self.tr(PEP8_TEXT).arg(
-            len(self.pep8.pep8checks)))
+            len(pep8.pep8checks)))
         self._outRefresh = True

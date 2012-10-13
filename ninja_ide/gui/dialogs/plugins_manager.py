@@ -1,15 +1,34 @@
-# *-* coding: utf-8 *-*
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
+
 from __future__ import absolute_import
 
+import webbrowser
 from copy import copy
+from distutils import version
 
 from PyQt4.QtGui import QWidget
 from PyQt4.QtGui import QDialog
 from PyQt4.QtGui import QLabel
-#from PyQt4.QtGui import QLineEdit
+from PyQt4.QtGui import QTextBrowser
 from PyQt4.QtGui import QPushButton
 from PyQt4.QtGui import QTableWidget
 from PyQt4.QtGui import QTabWidget
+from PyQt4.QtGui import QPlainTextEdit
 from PyQt4.QtGui import QVBoxLayout
 from PyQt4.QtGui import QHBoxLayout
 from PyQt4.QtGui import QMessageBox
@@ -20,6 +39,23 @@ from PyQt4.QtCore import QThread
 from ninja_ide.core import plugin_manager
 from ninja_ide.core import file_manager
 from ninja_ide.tools import ui_tools
+
+from ninja_ide.tools.logger import NinjaLogger
+
+logger = NinjaLogger('ninja_ide.gui.dialogs.plugin_manager')
+
+TABLE_HEADER = ('Name', 'Version')
+HTML_STYLE = """
+<html>
+<body>
+    <h2>{name}</h2>
+    <p><i>Version: {version}</i></p>
+    <h3>{description}</h3>
+    <br><p><b>Author:</b> {author}</p>
+    <p>More info about the Plugin: <a href='{link}'>Website</a></p>
+</body>
+</html>
+"""
 
 
 def _get_plugin(plugin_name, plugin_list):
@@ -41,12 +77,18 @@ class PluginsManagerWidget(QDialog):
     def __init__(self, parent):
         QDialog.__init__(self, parent, Qt.Dialog)
         self.setWindowTitle(self.tr("Plugins Manager"))
-        self.setModal(True)
-        self.resize(700, 500)
+        self.resize(700, 600)
 
         vbox = QVBoxLayout(self)
         self._tabs = QTabWidget()
         vbox.addWidget(self._tabs)
+        self._txt_data = QTextBrowser()
+        self._txt_data.setOpenLinks(False)
+        vbox.addWidget(QLabel(self.tr("Description:")))
+        vbox.addWidget(self._txt_data)
+        btnReload = QPushButton(self.tr("Reload"))
+        btnReload.setMaximumWidth(100)
+        vbox.addWidget(btnReload)
         self.overlay = ui_tools.Overlay(self)
         self.overlay.hide()
 
@@ -55,7 +97,9 @@ class PluginsManagerWidget(QDialog):
         self._locals = []
         self._updates = []
         self._loading = True
+        self._requirements = {}
 
+        self.connect(btnReload, SIGNAL("clicked()"), self._reload_plugins)
         self.thread = ThreadLoadPlugins(self)
         self.connect(self.thread, SIGNAL("finished()"),
             self._load_plugins_data)
@@ -63,7 +107,28 @@ class PluginsManagerWidget(QDialog):
             self._after_download_plugin)
         self.connect(self.thread, SIGNAL("plugin_uninstalled(PyQt_PyObject)"),
             self._after_uninstall_plugin)
+        self.connect(self._txt_data, SIGNAL("anchorClicked(const QUrl&)"),
+            self._open_link)
         self.overlay.show()
+        self._reload_plugins()
+
+    def show_plugin_info(self, data):
+        plugin_description = unicode(data[2].toString()).replace('\n', '<br>')
+        html = HTML_STYLE.format(name=data[0].toString(),
+            version=data[1].toString(), description=plugin_description,
+            author=data[3].toString(), link=data[4].toString())
+        self._txt_data.setHtml(html)
+
+    def _open_link(self, url):
+        link = unicode(url.toString())
+        if link.startswith('/plugins/'):
+            link = 'http://ninja-ide.org' + link
+        webbrowser.open(link)
+
+    def _reload_plugins(self):
+        self.overlay.show()
+        self._loading = True
+        self.thread.runnable = self.thread.collect_data_thread
         self.thread.start()
 
     def _after_download_plugin(self, plugin):
@@ -89,6 +154,7 @@ class PluginsManagerWidget(QDialog):
 
     def _load_plugins_data(self):
         if self._loading:
+            self._tabs.clear()
             self._updatesWidget = UpdatesWidget(self, copy(self._updates))
             self._availableOficialWidget = AvailableWidget(self,
                 copy(self._oficial_available))
@@ -154,18 +220,26 @@ class UpdatesWidget(QWidget):
         self._parent = parent
         self._updates = updates
         vbox = QVBoxLayout(self)
-        self._table = QTableWidget(1, 5)
+        self._table = QTableWidget(1, 2)
         self._table.removeRow(0)
-        self._headers = ('Name', 'Version', 'Description', 'Authors', 'Web')
+        self._table.setSelectionMode(QTableWidget.SingleSelection)
+        self._table.setColumnWidth(0, 500)
         vbox.addWidget(self._table)
-        ui_tools.load_table(self._table, self._headers,
+        ui_tools.load_table(self._table, TABLE_HEADER,
             _format_for_table(updates))
-        self._table.setColumnWidth(0, 200)
         btnUpdate = QPushButton(self.tr("Update"))
         btnUpdate.setMaximumWidth(100)
         vbox.addWidget(btnUpdate)
 
         self.connect(btnUpdate, SIGNAL("clicked()"), self._update_plugins)
+        self.connect(self._table, SIGNAL("itemSelectionChanged()"),
+            self._show_item_description)
+
+    def _show_item_description(self):
+        item = self._table.currentItem()
+        if item is not None:
+            data = item.data(Qt.UserRole).toList()
+            self._parent.show_plugin_info(data)
 
     def _update_plugins(self):
         data = _format_for_table(self._updates)
@@ -189,13 +263,13 @@ class AvailableWidget(QWidget):
         self._parent = parent
         self._available = available
         vbox = QVBoxLayout(self)
-        self._table = QTableWidget(1, 5)
+        self._table = QTableWidget(1, 2)
+        self._table.setSelectionMode(QTableWidget.SingleSelection)
         self._table.removeRow(0)
         vbox.addWidget(self._table)
-        self._headers = ('Name', 'Version', 'Description', "Authors", "Web")
-        ui_tools.load_table(self._table, self._headers,
+        ui_tools.load_table(self._table, TABLE_HEADER,
             _format_for_table(available))
-        self._table.setColumnWidth(0, 200)
+        self._table.setColumnWidth(0, 500)
         hbox = QHBoxLayout()
         btnInstall = QPushButton('Install')
         btnInstall.setMaximumWidth(100)
@@ -204,21 +278,15 @@ class AvailableWidget(QWidget):
             "changes to take effect.")))
         vbox.addLayout(hbox)
 
-#        hbox = QHBoxLayout()
-#        hbox.addWidget(QLabel(
-#            self.tr("Add an external Plugin. URL Zip File:")))
-#        self._link = QLineEdit()
-#        hbox.addWidget(self._link)
-#        btnAdd = QPushButton(self.tr("Add"))
-#        hbox.addWidget(btnAdd)
-#        vbox.addLayout(hbox)
-#        lblExternalPlugin = QLabel(
-#            self.tr("(Write the URL of the Plugin and press 'Add')"))
-#        lblExternalPlugin.setAlignment(Qt.AlignRight)
-#        vbox.addWidget(lblExternalPlugin)
-
         self.connect(btnInstall, SIGNAL("clicked()"), self._install_plugins)
-#        self.connect(btnAdd, SIGNAL("clicked()"), self._install_external)
+        self.connect(self._table, SIGNAL("itemSelectionChanged()"),
+            self._show_item_description)
+
+    def _show_item_description(self):
+        item = self._table.currentItem()
+        if item is not None:
+            data = item.data(Qt.UserRole).toList()
+            self._parent.show_plugin_info(data)
 
     def _install_plugins(self):
         data = _format_for_table(self._available)
@@ -255,7 +323,7 @@ class AvailableWidget(QWidget):
     def add_table_items(self, plugs):
         self._available += plugs
         data = _format_for_table(self._available)
-        ui_tools.load_table(self._table, self._headers, data)
+        ui_tools.load_table(self._table, TABLE_HEADER, data)
 
 
 class InstalledWidget(QWidget):
@@ -268,19 +336,27 @@ class InstalledWidget(QWidget):
         self._parent = parent
         self._installed = installed
         vbox = QVBoxLayout(self)
-        self._table = QTableWidget(1, 5)
+        self._table = QTableWidget(1, 2)
+        self._table.setSelectionMode(QTableWidget.SingleSelection)
         self._table.removeRow(0)
-        self._headers = ('Name', 'Version', 'Description', "Authors", "Web")
         vbox.addWidget(self._table)
-        ui_tools.load_table(self._table, self._headers,
+        ui_tools.load_table(self._table, TABLE_HEADER,
             _format_for_table(installed))
-        self._table.setColumnWidth(0, 200)
+        self._table.setColumnWidth(0, 500)
         btnUninstall = QPushButton(self.tr("Uninstall"))
         btnUninstall.setMaximumWidth(100)
         vbox.addWidget(btnUninstall)
 
         self.connect(btnUninstall, SIGNAL("clicked()"),
             self._uninstall_plugins)
+        self.connect(self._table, SIGNAL("itemSelectionChanged()"),
+            self._show_item_description)
+
+    def _show_item_description(self):
+        item = self._table.currentItem()
+        if item is not None:
+            data = item.data(Qt.UserRole).toList()
+            self._parent.show_plugin_info(data)
 
     def remove_item(self, plugin_name):
         plugin = _get_plugin(plugin_name, self._installed)
@@ -289,7 +365,7 @@ class InstalledWidget(QWidget):
     def add_table_items(self, plugs):
         self._installed += plugs
         data = _format_for_table(self._installed)
-        ui_tools.load_table(self._table, self._headers, data)
+        ui_tools.load_table(self._table, TABLE_HEADER, data)
 
     def _uninstall_plugins(self):
         data = _format_for_table(self._installed)
@@ -300,7 +376,7 @@ class InstalledWidget(QWidget):
         self._installed = installed
         while self._table.rowCount() > 0:
             self._table.removeRow(0)
-        ui_tools.load_table(self._table, self._headers, self._installed)
+        ui_tools.load_table(self._table, TABLE_HEADER, self._installed)
 
 
 class ThreadLoadPlugins(QThread):
@@ -309,7 +385,7 @@ class ThreadLoadPlugins(QThread):
     """
 
     def __init__(self, manager):
-        QThread.__init__(self)
+        super(ThreadLoadPlugins, self).__init__()
         self._manager = manager
         #runnable hold a function to call!
         self.runnable = self.collect_data_thread
@@ -333,23 +409,27 @@ class ThreadLoadPlugins(QThread):
         updates = []
         #Check por update the already installed plugin
         for local_data in local_plugins:
+            ava = None
             plug_oficial = _get_plugin(local_data["name"], oficial_available)
             plug_community = _get_plugin(local_data["name"],
                 community_available)
             if plug_oficial:
                 ava = plug_oficial
+                oficial_available = [p for p in oficial_available
+                        if unicode(p["name"]) != unicode(local_data["name"])]
             elif plug_community:
                 ava = plug_community
+                community_available = [p for p in community_available
+                        if unicode(p["name"]) != unicode(local_data["name"])]
             #check versions
-            if float(ava["version"]) > float(local_data["version"]):
+            if ava:
+                available_version = version.LooseVersion(str(ava["version"]))
+            else:
+                available_version = version.LooseVersion('0.0')
+            local_version = version.LooseVersion(str(local_data["version"]))
+            if available_version > local_version:
                 #this plugin has an update
                 updates.append(ava)
-                if plug_oficial:
-                    oficial_available = [p for p in oficial_available
-                        if unicode(p["name"]) != unicode(local_data["name"])]
-                elif plug_community:
-                    oficial_available = [p for p in community_available
-                        if unicode(p["name"]) != unicode(local_data["name"])]
         #set manager attributes
         self._manager._oficial_available = oficial_available
         self._manager._community_available = community_available
@@ -361,21 +441,61 @@ class ThreadLoadPlugins(QThread):
         Downloads some plugins
         """
         for p in self.plug:
-            plugin_manager.download_plugin(p[5])
-            plugin_manager.update_local_plugin_descriptor((p, ))
-            self.emit(SIGNAL("plugin_downloaded(PyQt_PyObject)"), p)
+            try:
+                name = plugin_manager.download_plugin(p[5])
+                p.append(name)
+                plugin_manager.update_local_plugin_descriptor((p, ))
+                req_command = plugin_manager.has_dependencies(p)
+                if req_command[0]:
+                    self._manager._requirements[p[0]] = req_command[1]
+                self.emit(SIGNAL("plugin_downloaded(PyQt_PyObject)"), p)
+            except Exception, e:
+                logger.warning("Impossible to install (%s): %s", p[0], e)
 
     def uninstall_plugins_thread(self):
         for p in self.plug:
-            plugin_manager.uninstall_plugin(p)
-            self.emit(SIGNAL("plugin_uninstalled(PyQt_PyObject)"), p)
+            try:
+                plugin_manager.uninstall_plugin(p)
+                self.emit(SIGNAL("plugin_uninstalled(PyQt_PyObject)"), p)
+            except Exception, e:
+                logger.warning("Impossible to uninstall (%s): %s", p[0], e)
 
     def update_plugin_thread(self):
         """
         Updates some plugins
         """
         for p in self.plug:
-            plugin_manager.uninstall_plugin(p)
-            plugin_manager.download_plugin(p[5])
-            plugin_manager.update_local_plugin_descriptor([p])
-            self._manager.reset_installed_plugins()
+            try:
+                plugin_manager.uninstall_plugin(p)
+                name = plugin_manager.download_plugin(p[5])
+                p.append(name)
+                plugin_manager.update_local_plugin_descriptor([p])
+                self._manager.reset_installed_plugins()
+            except Exception, e:
+                logger.warning("Impossible to update (%s): %s", p[0], e)
+
+
+class DependenciesHelpDialog(QDialog):
+    def __init__(self, requirements_dict):
+        super(DependenciesHelpDialog, self).__init__()
+        self.setWindowTitle(self.tr("Plugin requirements"))
+        self.resize(525, 400)
+        vbox = QVBoxLayout(self)
+        label = QLabel(self.tr("""It seems that some plugins needs some
+            dependencies to be solved to work properly, you should install them
+            as follows using a Terminal"""))
+        vbox.addWidget(label)
+        self._editor = QPlainTextEdit()
+        self._editor.setReadOnly(True)
+        vbox.addWidget(self._editor)
+        hbox = QHBoxLayout()
+        btnAccept = QPushButton(self.tr("Accept"))
+        btnAccept.setMaximumWidth(100)
+        hbox.addWidget(btnAccept)
+        vbox.addLayout(hbox)
+        #signals
+        self.connect(btnAccept, SIGNAL("clicked()"), self.close)
+
+        command_tmpl = "<%s>:\n%s\n"
+        for name, description in requirements_dict.iteritems():
+            self._editor.insertPlainText(command_tmpl % (name, description))

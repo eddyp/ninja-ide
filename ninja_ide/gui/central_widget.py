@@ -1,4 +1,20 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
+
 from __future__ import absolute_import
 
 from PyQt4.QtGui import QWidget
@@ -10,6 +26,7 @@ from PyQt4.QtGui import QComboBox
 from PyQt4.QtGui import QLabel
 from PyQt4.QtGui import QVBoxLayout
 from PyQt4.QtGui import QSplitter
+from PyQt4.QtGui import QScrollBar
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import QSettings
@@ -47,13 +64,24 @@ class __CentralWidget(QWidget):
         self._splitterAreaSizes = None
         self.lateralPanel = None
 
-        vbox = QVBoxLayout(self)
+        hbox = QHBoxLayout(self)
+        hbox.setContentsMargins(0, 0, 0, 0)
+        hbox.setSpacing(0)
         #Create Splitters to divide the UI in: MainPanel, Explorer, Misc
         self._splitterArea = QSplitter(Qt.Horizontal)
         self._splitterMain = QSplitter(Qt.Vertical)
 
+        #Create scrollbar for follow mode
+        self.scrollBar = QScrollBar(Qt.Vertical, self)
+        self.scrollBar.setFixedWidth(20)
+        self.scrollBar.setToolTip('Follow Mode: Scroll the Editors together')
+        self.scrollBar.hide()
+        self.connect(self.scrollBar, SIGNAL("valueChanged(int)"),
+            self.move_follow_scrolls)
+
         #Add to Main Layout
-        vbox.addWidget(self._splitterArea)
+        hbox.addWidget(self.scrollBar)
+        hbox.addWidget(self._splitterArea)
 
     def insert_central_container(self, container):
         self.mainContainer = container
@@ -68,10 +96,13 @@ class __CentralWidget(QWidget):
         self._splitterMain.insertWidget(1, container)
 
     def showEvent(self, event):
-        #Rearrange widgets on Window
-        self._splitterArea.insertWidget(0, self._splitterMain)
         #Show Event
         QWidget.showEvent(self, event)
+        #Avoid recalculate the panel sizes if they are already loaded
+        if self._splitterArea.count() == 2:
+            return
+        #Rearrange widgets on Window
+        self._splitterArea.insertWidget(0, self._splitterMain)
         qsettings = QSettings()
         #Lists of sizes as list of QVariant- heightList = [QVariant, QVariant]
         heightList = qsettings.value("window/central/mainSize",
@@ -82,16 +113,17 @@ class __CentralWidget(QWidget):
             heightList[0].toInt()[0], heightList[1].toInt()[0]]
         self._splitterAreaSizes = [
             widthList[0].toInt()[0], widthList[1].toInt()[0]]
-        #Set the sizes to splitters
-        self._splitterMain.setSizes(self._splitterMainSizes)
-        self._splitterArea.setSizes(self._splitterAreaSizes)
-        self.change_misc_visibility()
+        if not event.spontaneous():
+            self.change_misc_visibility()
         if bin(settings.UI_LAYOUT)[-1] == '1':
             self.splitter_central_rotate()
         if bin(settings.UI_LAYOUT >> 1)[-1] == '1':
             self.splitter_misc_rotate()
         if bin(settings.UI_LAYOUT >> 2)[-1] == '1':
             self.splitter_central_orientation()
+        #Set the sizes to splitters
+        self._splitterMain.setSizes(self._splitterMainSizes)
+        self._splitterArea.setSizes(self._splitterAreaSizes)
 
     def change_misc_visibility(self):
         if self.misc.isVisible():
@@ -149,6 +181,24 @@ class __CentralWidget(QWidget):
         if self.misc.isVisible():
             self._splitterMainSizes = self._splitterMain.sizes()
         return self._splitterMainSizes
+
+    def enable_follow_mode_scrollbar(self, val):
+        if val:
+            editorWidget = self.mainContainer.get_actual_editor()
+            maxScroll = editorWidget.verticalScrollBar().maximum()
+            position = editorWidget.verticalScrollBar().value()
+            self.scrollBar.setMaximum(maxScroll)
+            self.scrollBar.setValue(position)
+        self.scrollBar.setVisible(val)
+
+    def move_follow_scrolls(self, val):
+        widget = self.mainContainer._tabMain.currentWidget()
+        diff = widget._sidebarWidget.highest_line - val
+        s1 = self.mainContainer._tabMain.currentWidget().verticalScrollBar()
+        s2 = self.mainContainer._tabSecondary.\
+            currentWidget().verticalScrollBar()
+        s1.setValue(val)
+        s2.setValue(val + diff)
 
 
 class LateralPanel(QWidget):

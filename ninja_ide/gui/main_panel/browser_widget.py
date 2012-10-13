@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 import sys
@@ -9,6 +24,7 @@ from PyQt4.QtGui import QWidget
 from PyQt4.QtGui import QVBoxLayout
 from PyQt4.QtGui import QListWidget
 from PyQt4.QtGui import QListWidgetItem
+from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QUrl
 from PyQt4.QtCore import QString
 from PyQt4.QtCore import QSettings
@@ -23,7 +39,6 @@ from ninja_ide import resources
 from ninja_ide.core import file_manager
 from ninja_ide.gui.main_panel import itab_item
 from ninja_ide.gui.main_panel import recent_project_item
-from ninja_ide.tools import styles
 
 
 class BrowserWidget(QWidget, itab_item.ITabItem):
@@ -58,9 +73,9 @@ class BrowserWidget(QWidget, itab_item.ITabItem):
 
         if process is not None:
             time.sleep(0.5)
-            self.webFrame.reload()
+            self.webFrame.load(QUrl(url))
 
-        if url.endswith('startPage.html'):
+        if url == resources.START_PAGE_URL:
             self.webFrame.page().setLinkDelegationPolicy(
                 QWebPage.DelegateAllLinks)
             self.connect(self.webFrame, SIGNAL("linkClicked(QUrl)"),
@@ -76,6 +91,14 @@ class BrowserWidget(QWidget, itab_item.ITabItem):
                     'src="js/libs/', 'src="%s\\' % pathJs).replace(
                     'src="img/', 'src="%s\\' % pathImg)
                 self.webFrame.setHtml(content)
+            self._id = 'Start Page'
+            policy = Qt.ScrollBarAlwaysOff
+        else:
+            policy = Qt.ScrollBarAsNeeded
+        self.webFrame.page().currentFrame().setScrollBarPolicy(
+            Qt.Vertical, policy)
+        self.webFrame.page().currentFrame().setScrollBarPolicy(
+            Qt.Horizontal, policy)
 
     def start_page_operations(self, url):
         opt = file_manager.get_basename(unicode(url.toString()))
@@ -98,7 +121,6 @@ class WebPluginList(QListWidget):
         self.browser_referece = browserReference
         QListWidget.__init__(self)
         self.setMouseTracking(True)
-        styles.set_style(self, 'recent-project')
         self.load_items()
 
     def load_items(self):

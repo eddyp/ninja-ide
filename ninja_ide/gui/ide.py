@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 import sys
@@ -12,8 +27,8 @@ from PyQt4.QtGui import QPixmap
 from PyQt4.QtGui import QToolBar
 from PyQt4.QtGui import QToolTip
 from PyQt4.QtGui import QFont
-
 from PyQt4.QtCore import Qt
+from PyQt4.QtCore import QLocale
 from PyQt4.QtCore import QSettings
 from PyQt4.QtCore import QCoreApplication
 from PyQt4.QtCore import QTranslator
@@ -21,17 +36,20 @@ from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import QTextCodec
 from PyQt4.QtCore import QSize
 from PyQt4.QtCore import QPoint
+from PyQt4.QtNetwork import QLocalServer
 
 from ninja_ide import resources
 from ninja_ide.core import plugin_manager
 from ninja_ide.core import plugin_services
 from ninja_ide.core import settings
 from ninja_ide.core import file_manager
+from ninja_ide.core import ipc
 from ninja_ide.gui import updates
 from ninja_ide.gui import actions
 from ninja_ide.gui.dialogs import preferences
-from ninja_ide.tools import styles
+from ninja_ide.gui.dialogs import traceback_widget
 from ninja_ide.tools import json_manager
+from ninja_ide.tools.completion import completion_daemon
 #NINJA-IDE Containers
 from ninja_ide.gui import central_widget
 from ninja_ide.gui.main_panel import main_container
@@ -47,11 +65,21 @@ from ninja_ide.gui.menus import menu_plugins
 from ninja_ide.gui.menus import menu_project
 from ninja_ide.gui.menus import menu_source
 
+###############################################################################
+# LOGGER INITIALIZE
+###############################################################################
+
+from ninja_ide.tools.logger import NinjaLogger
+
+logger = NinjaLogger('ninja_ide.gui.ide')
+
 
 ###############################################################################
 # IDE: MAIN CONTAINER
 ###############################################################################
 __ideInstance = None
+#Save cursor flash time to restore it on close (necessary for Windows)
+cursor_flash_time = 0
 
 
 def IDE(*args, **kw):
@@ -62,16 +90,30 @@ def IDE(*args, **kw):
 
 
 class __IDE(QMainWindow):
+###############################################################################
+# SIGNALS
+#
+# goingDown()
+###############################################################################
 
-    def __init__(self):
+    def __init__(self, start_server=False):
         QMainWindow.__init__(self)
         self.setWindowTitle('NINJA-IDE {Ninja-IDE Is Not Just Another IDE}')
-        self.setWindowIcon(QIcon(resources.IMAGES['icon']))
         self.setMinimumSize(700, 500)
         #Load the size and the position of the main window
         self.load_window_geometry()
 
-        #Opactity
+        #Start server if needed
+        self.s_listener = None
+        if start_server:
+            self.s_listener = QLocalServer()
+            self.s_listener.listen("ninja_ide")
+            self.connect(self.s_listener, SIGNAL("newConnection()"),
+                self._process_connection)
+
+        #Profile handler
+        self.profile = None
+        #Opacity
         self.opacity = settings.MAX_OPACITY
 
         #Define Actions object before the UI
@@ -87,10 +129,11 @@ class __IDE(QMainWindow):
 
         #ToolBar
         self.toolbar = QToolBar(self)
-        styles.set_style(self.toolbar, 'toolbar-default')
         self.toolbar.setToolTip(self.tr("Press and Drag to Move"))
         self.toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        self.addToolBar(settings.TOOLBAR_ORIENTATION, self.toolbar)
+        self.addToolBar(settings.TOOLBAR_AREA, self.toolbar)
+        if settings.HIDE_TOOLBAR:
+            self.toolbar.hide()
 
         #Install Shortcuts after the UI has been initialized
         self.actions.install_shortcuts(self)
@@ -104,8 +147,8 @@ class __IDE(QMainWindow):
         view = menubar.addMenu(self.tr("&View"))
         source = menubar.addMenu(self.tr("&Source"))
         project = menubar.addMenu(self.tr("&Project"))
-        self.pluginsMenu = menubar.addMenu(self.tr("P&lugins"))
-        about = menubar.addMenu(self.tr("&About"))
+        self.pluginsMenu = menubar.addMenu(self.tr("&Addins"))
+        about = menubar.addMenu(self.tr("Abou&t"))
 
         #The order of the icons in the toolbar is defined by this calls
         self._menuFile = menu_file.MenuFile(file_, self.toolbar, self)
@@ -116,14 +159,15 @@ class __IDE(QMainWindow):
         self._menuPlugins = menu_plugins.MenuPlugins(self.pluginsMenu)
         self._menuAbout = menu_about.MenuAbout(about)
 
+        self.load_toolbar()
+
         #Plugin Manager
         services = {
             'editor': plugin_services.MainService(),
             'toolbar': plugin_services.ToolbarService(self.toolbar),
             'menuApp': plugin_services.MenuAppService(self.pluginsMenu),
             'explorer': plugin_services.ExplorerService(),
-            'misc': plugin_services.MiscContainerService(self.misc)
-        }
+            'misc': plugin_services.MiscContainerService(self.misc)}
         serviceLocator = plugin_manager.ServiceLocator(services)
         self.plugin_manager = plugin_manager.PluginManager(resources.PLUGINS,
             serviceLocator)
@@ -137,6 +181,39 @@ class __IDE(QMainWindow):
 
         self.connect(self.mainContainer, SIGNAL("fileSaved(QString)"),
             self.show_status_message)
+
+    def _process_connection(self):
+        connection = self.s_listener.nextPendingConnection()
+        connection.waitForReadyRead()
+        data = unicode(connection.readAll())
+        connection.close()
+        if data:
+            files, projects = data.split(ipc.project_delimiter, 1)
+            files = map(lambda x: (x.split(':')[0], int(x.split(':')[1])),
+                files.split(ipc.file_delimiter))
+            projects = projects.split(ipc.project_delimiter)
+            self.load_session_files_projects(files, [], projects, None)
+
+    def load_toolbar(self):
+        self.toolbar.clear()
+        toolbar_items = {}
+        toolbar_items.update(self._menuFile.toolbar_items)
+        toolbar_items.update(self._menuView.toolbar_items)
+        toolbar_items.update(self._menuEdit.toolbar_items)
+        toolbar_items.update(self._menuSource.toolbar_items)
+        toolbar_items.update(self._menuProject.toolbar_items)
+
+        for item in settings.TOOLBAR_ITEMS:
+            if item == 'separator':
+                self.toolbar.addSeparator()
+            else:
+                tool_item = toolbar_items.get(item, None)
+                if tool_item is not None:
+                    self.toolbar.addAction(tool_item)
+        #load action added by plugins, This is a special case when reload
+        #the toolbar after save the preferences widget
+        for toolbar_action in settings.get_toolbar_item_for_plugins():
+            self.toolbar.addAction(toolbar_action)
 
     def load_external_plugins(self, paths):
         for path in paths:
@@ -164,12 +241,16 @@ class __IDE(QMainWindow):
         self.connect(self.mainContainer,
             SIGNAL("addBackItemNavigation()"),
             self.actions.add_back_item_navigation)
+        self.connect(self.mainContainer, SIGNAL("updateFileMetadata()"),
+            self.actions.update_explorer)
         self.connect(self.mainContainer, SIGNAL("updateLocator(QString)"),
             self.actions.update_explorer)
         self.connect(self.mainContainer, SIGNAL("openPreferences()"),
             self._show_preferences)
         self.connect(self.mainContainer, SIGNAL("dontOpenStartPage()"),
             self._dont_show_start_page_again)
+        self.connect(self.mainContainer, SIGNAL("currentTabChanged(QString)"),
+            self.status.handle_tab_changed)
         # Update symbols
         self.connect(self.mainContainer, SIGNAL("updateLocator(QString)"),
             self.status.explore_file_code)
@@ -181,6 +262,8 @@ class __IDE(QMainWindow):
             self.status.explore_code)
         self.connect(self.explorer, SIGNAL("goToDefinition(int)"),
             self.actions.editor_go_to_line)
+        self.connect(self.explorer, SIGNAL("projectClosed(QString)"),
+            self.actions.close_files_from_project)
         #Create Misc Bottom Container
         self.misc = misc_container.MiscContainer(self)
         self.connect(self.mainContainer, SIGNAL("findOcurrences(QString)"),
@@ -192,6 +275,8 @@ class __IDE(QMainWindow):
         self.connect(self.mainContainer,
             SIGNAL("cursorPositionChange(int, int)"),
             self.central.lateralPanel.update_line_col)
+        self.connect(self.mainContainer, SIGNAL("enabledFollowMode(bool)"),
+            self.central.enable_follow_mode_scrollbar)
 
         if settings.SHOW_START_PAGE:
             self.mainContainer.show_start_page()
@@ -210,17 +295,45 @@ class __IDE(QMainWindow):
         qsettings.endGroup()
         self.mainContainer.actualTab.close_tab()
 
-    def load_session_files_projects(self, filesTab1, filesTab2, projects):
-        self.mainContainer.open_files(filesTab1)
-        self.mainContainer.open_files(filesTab2, False)
-        self.explorer.open_session_projects(projects)
-        self.status.explore_code()
+    def load_session_files_projects(self, filesTab1, filesTab2, projects,
+        current_file):
+        self.mainContainer.open_files(filesTab1, notIDEStart=False)
+        self.mainContainer.open_files(filesTab2, mainTab=False,
+            notIDEStart=False)
+        self.explorer.open_session_projects(projects, notIDEStart=False)
+        if current_file:
+            self.mainContainer.open_file(current_file, notStart=False)
+
+    def open_file(self, filename):
+        if filename:
+            self.mainContainer.open_file(unicode(filename))
+
+    def open_project(self, project):
+        if project:
+            self.actions.open_project(project)
+
+    def __get_profile(self):
+        return self.profile
+
+    def __set_profile(self, profileName):
+        self.profile = profileName
+        if self.profile is not None:
+            self.setWindowTitle('NINJA-IDE (PROFILE: %s)' % self.profile)
+        else:
+            self.setWindowTitle(
+                'NINJA-IDE {Ninja-IDE Is Not Just Another IDE}')
+
+    Profile = property(__get_profile, __set_profile)
 
     def change_window_title(self, title):
-        self.setWindowTitle('NINJA-IDE - ' + title)
+        if self.profile is None:
+            self.setWindowTitle('NINJA-IDE - %s' % title)
+        else:
+            self.setWindowTitle('NINJA-IDE (PROFILE: %s) - %s' % (
+                self.profile, title))
 
     def wheelEvent(self, event):
-        if event.modifiers() == Qt.AltModifier:
+        if event.modifiers() == Qt.ShiftModifier:
             if event.delta() == 120 and self.opacity < settings.MAX_OPACITY:
                 self.opacity += 0.1
             elif event.delta() == -120 and self.opacity > settings.MIN_OPACITY:
@@ -236,17 +349,26 @@ class __IDE(QMainWindow):
         Info saved: Tabs and projects opened, windows state(size and position).
         """
         qsettings = QSettings()
+        editor_widget = self.mainContainer.get_actual_editor()
+        current_file = ''
+        if editor_widget is not None:
+            current_file = editor_widget.ID
         openedFiles = self.mainContainer.get_opened_documents()
         if qsettings.value('preferences/general/loadFiles', True).toBool():
+            projects_obj = self.explorer.get_opened_projects()
+            projects = [p.path for p in projects_obj]
             qsettings.setValue('openFiles/projects',
-                self.explorer.get_opened_projects())
+                projects)
             if len(openedFiles) > 0:
                 qsettings.setValue('openFiles/mainTab', openedFiles[0])
             if len(openedFiles) == 2:
                 qsettings.setValue('openFiles/secondaryTab', openedFiles[1])
+            qsettings.setValue('openFiles/currentFile', current_file)
         qsettings.setValue('preferences/editor/bookmarks', settings.BOOKMARKS)
         qsettings.setValue('preferences/editor/breakpoints',
             settings.BREAKPOINTS)
+        qsettings.setValue('preferences/general/toolbarArea',
+            self.toolBarArea(self.toolbar))
         #Save if the windows state is maximixed
         if(self.isMaximized()):
             qsettings.setValue("window/maximized", True)
@@ -260,8 +382,14 @@ class __IDE(QMainWindow):
             self.central.get_area_sizes())
         qsettings.setValue("window/central/mainSize",
             self.central.get_main_sizes())
+        #Save the toolbar visibility
+        qsettings.setValue("window/hide_toolbar",
+            not self.toolbar.isVisible() and self.menuBar().isVisible())
         #Save Profiles
-        qsettings.setValue('ide/profiles', settings.PROFILES)
+        if self.profile is not None:
+            self.actions.save_profile(self.profile)
+        else:
+            qsettings.setValue('ide/profiles', settings.PROFILES)
 
     def load_window_geometry(self):
         """Load from QSettings the window size of de Ninja IDE"""
@@ -275,24 +403,35 @@ class __IDE(QMainWindow):
                 QPoint(100, 100)).toPoint())
 
     def closeEvent(self, event):
+        if self.s_listener:
+            self.s_listener.close()
         if settings.CONFIRM_EXIT and \
         self.mainContainer.check_for_unsaved_tabs():
+            unsaved_files = self.mainContainer.get_unsaved_files()
+            txt = '\n'.join(unsaved_files)
             val = QMessageBox.question(self,
                 self.tr("Some changes were not saved"),
-                self.tr("Do you want to exit anyway?"),
+                self.tr("%1\n\nDo you want to exit anyway?").arg(txt),
                 QMessageBox.Yes, QMessageBox.No)
             if val == QMessageBox.No:
                 event.ignore()
+        QApplication.instance().setCursorFlashTime(cursor_flash_time)
+        self.emit(SIGNAL("goingDown()"))
         self.save_settings()
+        completion_daemon.shutdown_daemon()
+        #close python documentation server (if running)
+        self.mainContainer.close_python_doc()
         #Shutdown PluginManager
         self.plugin_manager.shutdown()
 
     def notify_plugin_errors(self):
         errors = self.plugin_manager.errors
         if errors:
-            QMessageBox.information(self, "Plugin Errors",
-                self.tr("The following plugins have been disabled:\n %1").arg(
-                    errors))
+            plugin_error_dialog = traceback_widget.PluginErrorDialog()
+            for err_tuple in errors:
+                plugin_error_dialog.add_traceback(err_tuple[0], err_tuple[1])
+            #show the dialog
+            plugin_error_dialog.exec_()
 
 
 ###############################################################################
@@ -300,11 +439,25 @@ class __IDE(QMainWindow):
 ###############################################################################
 
 
-def start(filenames=None, projects_path=None, extra_plugins=None):
+def start(filenames=None, projects_path=None,
+          extra_plugins=None, linenos=None):
     app = QApplication(sys.argv)
     QCoreApplication.setOrganizationName('NINJA-IDE')
-    QCoreApplication.setOrganizationDomain('ninja-ide.org')
+    QCoreApplication.setOrganizationDomain('NINJA-IDE')
     QCoreApplication.setApplicationName('NINJA-IDE')
+    app.setWindowIcon(QIcon(resources.IMAGES['icon']))
+
+    # Check if there is another session of ninja-ide opened
+    # and in that case send the filenames and projects to that session
+    running = ipc.is_running()
+    start_server = not running[0]
+    if running[0] and (filenames or projects_path):
+        sended = ipc.send_data(running[1], filenames, projects_path, linenos)
+        running[1].close()
+        if sended:
+            sys.exit()
+    else:
+        running[1].close()
 
     # Create and display the splash screen
     splash_pix = QPixmap(resources.IMAGES['splash'])
@@ -313,28 +466,62 @@ def start(filenames=None, projects_path=None, extra_plugins=None):
     splash.show()
     app.processEvents()
 
+    # Set the cursor to unblinking
+    global cursor_flash_time
+    cursor_flash_time = app.cursorFlashTime()
+    app.setCursorFlashTime(0)
+
     #Set the codec for strings (QString)
     QTextCodec.setCodecForCStrings(QTextCodec.codecForName('utf-8'))
 
     #Translator
+    qsettings = QSettings()
+    language = QLocale.system().language()
+    lang = unicode(qsettings.value(
+        'preferences/interface/language', language).toString()) + '.qm'
+    lang_path = file_manager.create_path(resources.LANGS, unicode(lang))
+    if file_manager.file_exists(lang_path):
+        settings.LANGUAGE = lang_path
+    elif file_manager.file_exists(file_manager.create_path(
+      resources.LANGS_DOWNLOAD, unicode(lang))):
+        settings.LANGUAGE = file_manager.create_path(
+            resources.LANGS_DOWNLOAD, unicode(lang))
     translator = QTranslator()
-    translator.load(settings.LANGUAGE)
-    app.installTranslator(translator)
+    if settings.LANGUAGE:
+        translator.load(settings.LANGUAGE)
+        app.installTranslator(translator)
 
     #Loading Syntax
-    splash.showMessage("Loading Syntax" + " - DEVELOPMENT VERSION",
-        Qt.AlignRight | Qt.AlignTop, Qt.black)
+    splash.showMessage("Loading Syntax", Qt.AlignRight | Qt.AlignTop, Qt.black)
     json_manager.load_syntax()
 
     #Read Settings
-    qsettings = QSettings()
-    splash.showMessage("Loading Settings" + " - DEVELOPMENT VERSION",
-        Qt.AlignRight | Qt.AlignTop,
+    splash.showMessage("Loading Settings", Qt.AlignRight | Qt.AlignTop,
         Qt.black)
     settings.load_settings()
 
-    #Loading Themes
-    splash.showMessage("Loading Themes" + " - DEVELOPMENT VERSION",
+    #Set Stylesheet
+    style_applied = False
+    if settings.NINJA_SKIN not in ('Default', 'Classic Theme'):
+        file_name = ("%s.qss" % settings.NINJA_SKIN)
+        qss_file = file_manager.create_path(resources.NINJA_THEME_DOWNLOAD,
+            file_name)
+        if file_manager.file_exists(qss_file):
+            with open(qss_file) as f:
+                qss = f.read()
+                app.setStyleSheet(qss)
+                style_applied = True
+    if not style_applied:
+        if settings.NINJA_SKIN == 'Default':
+            with open(resources.NINJA_THEME) as f:
+                qss = f.read()
+        else:
+            with open(resources.NINJA__THEME_CLASSIC) as f:
+                qss = f.read()
+        app.setStyleSheet(qss)
+
+    #Loading Schemes
+    splash.showMessage("Loading Schemes",
         Qt.AlignRight | Qt.AlignTop, Qt.black)
     scheme = unicode(qsettings.value('preferences/editor/scheme',
         "default").toString())
@@ -347,15 +534,14 @@ def start(filenames=None, projects_path=None, extra_plugins=None):
     #Loading Shortcuts
     resources.load_shortcuts()
     #Loading GUI
-    splash.showMessage("Loading GUI" + " - DEVELOPMENT VERSION",
-        Qt.AlignRight | Qt.AlignTop, Qt.black)
-    ide = IDE()
+    splash.showMessage("Loading GUI", Qt.AlignRight | Qt.AlignTop, Qt.black)
+    ide = IDE(start_server)
 
     #Showing GUI
     ide.show()
 
     #Loading Session Files
-    splash.showMessage("Loading Files and Projects" + " - DEVELOPMENT VERSION",
+    splash.showMessage("Loading Files and Projects",
         Qt.AlignRight | Qt.AlignTop, Qt.black)
     #Files in Main Tab
     mainFiles = qsettings.value('openFiles/mainTab', []).toList()
@@ -363,7 +549,7 @@ def start(filenames=None, projects_path=None, extra_plugins=None):
     for file_ in mainFiles:
         fileData = file_.toList()
         tempFiles.append((unicode(fileData[0].toString()),
-            fileData[2].toInt()[0]))
+            fileData[1].toInt()[0]))
     mainFiles = tempFiles
     #Files in Secondary Tab
     secondaryFiles = qsettings.value('openFiles/secondaryTab', []).toList()
@@ -371,18 +557,25 @@ def start(filenames=None, projects_path=None, extra_plugins=None):
     for file_ in secondaryFiles:
         fileData = file_.toList()
         tempFiles.append((unicode(fileData[0].toString()),
-            fileData[2].toInt()[0]))
+            fileData[1].toInt()[0]))
     secondaryFiles = tempFiles
+    #Current File
+    current_file = unicode(
+        qsettings.value('openFiles/currentFile', '').toString())
     #Projects
     projects = qsettings.value('openFiles/projects', []).toList()
     projects = [unicode(project.toString()) for project in projects]
     #Include files received from console args
-    if filenames:
-        mainFiles += [(f, 0) for f in filenames]
+    file_with_nro = map(lambda f: (f[0], f[1] - 1), zip(filenames, linenos))
+    file_without_nro = map(lambda f: (f, 0), filenames[len(linenos):])
+    mainFiles += file_with_nro + file_without_nro
     #Include projects received from console args
     if projects_path:
         projects += projects_path
-    ide.load_session_files_projects(mainFiles, secondaryFiles, projects)
+    mainFiles.reverse()
+    secondaryFiles.reverse()
+    ide.load_session_files_projects(mainFiles, secondaryFiles, projects,
+        current_file)
     #Load external plugins
     if extra_plugins:
         ide.load_external_plugins(extra_plugins)
