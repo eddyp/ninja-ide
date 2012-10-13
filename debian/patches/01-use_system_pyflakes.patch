@@ -9,11 +9,11 @@ Forwarded: no
 
 --- ninja-ide.orig/ninja_ide/gui/editor/errors_checker.py
 +++ ninja-ide/ninja_ide/gui/editor/errors_checker.py
-@@ -6,7 +6,7 @@ import compiler
- from PyQt4.QtCore import QThread
+@@ -23,7 +23,7 @@ from PyQt4.QtCore import QThread
  
  from ninja_ide.core import file_manager
--from ninja_ide.dependencies.pyflakes import checker
+ from ninja_ide.core import settings
+-from ninja_ide.dependencies.pyflakes_mod import checker
 +from pyflakes import checker
  
  
