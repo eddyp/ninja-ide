@@ -7,8 +7,9 @@ ninja-ide (2.1.1+ds1-1) UNRELEASED; urgency=low
   * Refresh patches to adapt to the new code
   * Updated debian/copyright
   * Bump debhelper compatibility to 9
+  * Add dependency to modernizr
 
- -- David Paleino <dapal@debian.org>  Sat, 13 Oct 2012 22:02:46 +0200
+ -- David Paleino <dapal@debian.org>  Sat, 13 Oct 2012 22:03:08 +0200
 
 ninja-ide (2.0~b-2) unstable; urgency=low
 
