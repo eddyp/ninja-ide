@@ -1,11 +1,12 @@
-ninja-ide (2.0~b-3) UNRELEASED; urgency=low
+ninja-ide (2.1.1+ds1-1) UNRELEASED; urgency=low
 
+  * New upstream version
   * Added desktop file (Closes: #643875)
   * Drop unused GPL-2+ section in debian/copyright
   * Add lintian-override: the .html in /usr/share/doc/ is not documentation
   * Fixed debian/watch to point to new repository, on github
 
- -- David Paleino <dapal@debian.org>  Sat, 13 Oct 2012 21:43:51 +0200
+ -- David Paleino <dapal@debian.org>  Sat, 13 Oct 2012 21:57:16 +0200
 
 ninja-ide (2.0~b-2) unstable; urgency=low
 
