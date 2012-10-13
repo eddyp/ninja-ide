@@ -1,6 +1,7 @@
 ninja-ide (2.1.1+ds1-1) UNRELEASED; urgency=low
 
   * New upstream version
+    - fixed issue with backspace (Closes: #689502)
   * Added desktop file (Closes: #643875)
   * Add lintian-override: the .html in /usr/share/doc/ is not documentation
   * Fixed debian/watch to point to new repository, on github
