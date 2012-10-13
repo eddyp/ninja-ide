@@ -1,4 +1,20 @@
-# *-* coding: utf-8 *-*
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
+
 from __future__ import absolute_import
 
 import os
@@ -23,12 +39,27 @@ from PyQt4.QtCore import SIGNAL
 
 from ninja_ide import resources
 from ninja_ide.core import settings
+from ninja_ide.core import plugin_interfaces
 from ninja_ide.core import file_manager
 from ninja_ide.tools import json_manager
+from ninja_ide.tools.logger import NinjaLogger
 
+
+logger = NinjaLogger('ninja_ide.gui.dialogs.wizard_new_project')
+logger.info("loaded")
+DEBUG = logger.debug
+
+
+###############################################################################
+# Wizard handler and Python Project handler
+###############################################################################
 
 class WizardNewProject(QWizard):
-
+    """
+    Wizard to create a new project (of any kind), it implements the base
+    behavior. Also, it set two special projects type handler
+    (PythonProjectHandler, ImportFromSourcesProjectHandler)
+    """
     def __init__(self, parent):
         QWizard.__init__(self, parent)
         self.__explorer = parent
@@ -36,16 +67,26 @@ class WizardNewProject(QWizard):
         self.setPixmap(QWizard.LogoPixmap, QPixmap(resources.IMAGES['icon']))
 
         self.option = 'Python'
-        #settings.PROJECT_TYPES[self.option] = self
         #Add a project type handler for Python
-        settings.set_project_type_handler(self.option, self)
+        settings.set_project_type_handler(self.option,
+            PythonProjectHandler(self.__explorer))
+        #Add a project type handler for Import from existing sources
+        settings.set_project_type_handler('Import from sources',
+            ImportFromSourcesProjectHandler(self.__explorer))
 
-        self.addPage(PageProjectType(self))
+        self.projectTypePage = PageProjectType(self)
+        self.addPage(self.projectTypePage)
         self.addPage(PageProjectProperties())
 
+        self.setButtonLayout([
+            QWizard.BackButton,
+            QWizard.Stretch,
+            QWizard.NextButton,
+            QWizard.FinishButton])
+
     def add_project_pages(self, option='Python'):
+        logger.debug("Add project pages")
         self.option = option
-        #pages = settings.PROJECT_TYPES[option].getPages()
         pages = settings.get_project_type_handler(option).get_pages()
         listIds = self.pageIds()
         listIds.pop(listIds.index(0))
@@ -57,13 +98,14 @@ class WizardNewProject(QWizard):
             self.removePage(i)
 
     def done(self, result):
+        logger.debug("Done")
         if result == 1:
             page = self.currentPage()
             if type(page) == PageProjectProperties:
                 venv = unicode(page.vtxtPlace.text())
                 if venv:
                     if sys.platform == 'win32':
-                        venv = os.path.join(venv, 'Scripts', 'python')
+                        venv = os.path.join(venv, 'Scripts', 'python.exe')
                     else:
                         venv = os.path.join(venv, 'bin', 'python')
                     #check if venv folder exists
@@ -80,26 +122,58 @@ class WizardNewProject(QWizard):
                         else:
                             self.currentPage().vtxtPlace.setText("")
                 page.vtxtPlace.setText(venv)
-            #settings.PROJECT_TYPES[self.option].onWizardFinish(self)
             settings.get_project_type_handler(self.option)\
                 .on_wizard_finish(self)
         super(WizardNewProject, self).done(result)
 
+    def _load_project(self, path):
+        """
+        Open Project based on path into Explorer
+        """
+        self.__explorer.open_project_folder(path)
+
+    def _load_project_with_extensions(self, path, extensions):
+        """Open Project based on path into Explorer with extensions"""
+#        self._main._properties._treeProjects.load_project(
+#            self._main.open_project_with_extensions(path), path)
+        pass
+
+
+###############################################################################
+# Python Project Handler
+###############################################################################
+
+
+class PythonProjectHandler(plugin_interfaces.IProjectTypeHandler):
+    """
+    Handler for Python projects
+    """
+    def __init__(self, explorer):
+        self.__explorer = explorer
+
+    def get_pages(self):
+        """
+        Get extra pages for new Python projects
+        """
+        return ()
+
+    def get_context_menus(self):
+        """
+        Get a special menu for new Python projects
+        """
+        return ()
+
     def on_wizard_finish(self, wizard):
+        """
+        Create the ninja_porject (.nja file), create the main __init__.py
+        and open the project
+        """
         ids = wizard.pageIds()
         page = wizard.page(ids[1])
-        place = unicode(page.txtPlace.text())
-        if not place:
+        path = unicode(page.txtPlace.text())
+        if not path:
             QMessageBox.critical(self, self.tr("Incorrect Location"),
                 self.tr("The project couldn\'t be create"))
-            return
-        folder = unicode(page.txtFolder.text()).replace(' ', '_')
-        path = os.path.join(place, folder)
-        try:
-            file_manager.create_folder(path)
-        except:
-            QMessageBox.critical(self, self.tr("Incorrect Location"),
-                self.tr("The folder already exists."))
             return
         project = {}
         name = unicode(page.txtName.text())
@@ -108,17 +182,57 @@ class WizardNewProject(QWizard):
         project['license'] = unicode(page.cboLicense.currentText())
         project['venv'] = unicode(page.vtxtPlace.text())
         json_manager.create_ninja_project(path, name, project)
-        self._load_project(path)
+        try:
+            file_manager.create_init_file(path)
+        except:
+            logger.debug("The __init__ file already exists - Import Sources.")
+        wizard._load_project(path)
 
-    def _load_project(self, path):
-        """Open Project based on path into Explorer"""
-        self.__explorer.open_project_folder(path)
 
-    def _load_project_with_extensions(self, path, extensions):
-        """Open Project based on path into Explorer with extensions"""
-#        self._main._properties._treeProjects.load_project(
-#            self._main.open_project_with_extensions(path), path)
-        pass
+###############################################################################
+# Import project from existing sources
+###############################################################################
+
+
+class ImportFromSourcesProjectHandler(plugin_interfaces.IProjectTypeHandler):
+    """
+    Handler for Import from existing sources project
+    """
+    def __init__(self, explorer):
+        self.__explorer = explorer
+
+    def get_pages(self):
+        """
+        Get extra pages for Import from sources projects
+        """
+        return ()
+
+    def get_context_menus(self):
+        """
+        Get a special menu for Import from sources projects
+        """
+        return ()
+
+    def on_wizard_finish(self, wizard):
+        """
+        Create the ninja_porject (.nja file) and open the project
+        """
+        ids = wizard.pageIds()
+        page = wizard.page(ids[1])
+        path = unicode(page.txtPlace.text())
+        if not path:
+            QMessageBox.critical(self, self.tr("Incorrect Location"),
+                self.tr("The project couldn\'t be create"))
+            return
+        project = {}
+        name = unicode(page.txtName.text())
+        project['name'] = name
+        project['description'] = unicode(page.txtDescription.toPlainText())
+        project['license'] = unicode(page.cboLicense.currentText())
+        project['venv'] = unicode(page.vtxtPlace.text())
+        project['project-type'] = unicode(wizard.option)
+        json_manager.create_ninja_project(path, name, project)
+        wizard._load_project(path)
 
 
 ###############################################################################
@@ -139,15 +253,20 @@ class PageProjectType(QWizardPage):
         vbox.addWidget(self.listWidget)
         types = settings.get_all_project_types()
         types.sort()
-        self.listWidget.addItems(types)
         index = types.index('Python')
-        self.listWidget.setCurrentRow(index)
+        types.insert(0, types.pop(index))
+        self.listWidget.addItems(types)
+        self.listWidget.setCurrentRow(0)
 
-        self.connect(self.listWidget, SIGNAL("itemSelectionChanged()"),
-            self._item_changed)
+        self.connect(self.listWidget, SIGNAL("itemActivated(QListWidgetItem*)"),
+            self.load_pages)
 
-    def _item_changed(self):
-        self._wizard.add_project_pages(
+    def validatePage(self):
+        self._wizard.option = unicode(self.listWidget.currentItem().text())
+        return True
+
+    def load_pages(self):
+        self.wizard().add_project_pages(
             unicode(self.listWidget.currentItem().text()))
 
 
@@ -168,28 +287,22 @@ class PageProjectProperties(QWizardPage):
         #Names of the fields to complete
         self.lblName = QLabel(self.tr("New Project Name (*):"))
         self.lblPlace = QLabel(self.tr("Project Location (*):"))
-        self.lblFolder = QLabel(self.tr("Project Folder:"))
         self.lblDescription = QLabel(self.tr("Project Description:"))
         self.lblLicense = QLabel(self.tr("Project License:"))
         self.lblVenvFolder = QLabel(self.tr("Virtualenv Folder:"))
         gbox.addWidget(self.lblName, 0, 0, Qt.AlignRight)
-        gbox.addWidget(self.lblFolder, 1, 0, Qt.AlignRight)
-        gbox.addWidget(self.lblPlace, 2, 0, Qt.AlignRight)
-        gbox.addWidget(self.lblDescription, 3, 0, Qt.AlignTop)
-        gbox.addWidget(self.lblLicense, 4, 0, Qt.AlignRight)
-        gbox.addWidget(self.lblVenvFolder, 5, 0, Qt.AlignRight)
+        gbox.addWidget(self.lblPlace, 1, 0, Qt.AlignRight)
+        gbox.addWidget(self.lblDescription, 2, 0, Qt.AlignTop)
+        gbox.addWidget(self.lblLicense, 3, 0, Qt.AlignRight)
+        gbox.addWidget(self.lblVenvFolder, 4, 0, Qt.AlignRight)
 
         #Fields on de right of the grid
         #Name
         self.txtName = QLineEdit()
-        self.registerField('projectName*', self.txtName)
-        #Project Folder
-        self.txtFolder = QLineEdit()
         #Location
         hPlace = QHBoxLayout()
         self.txtPlace = QLineEdit()
         self.txtPlace.setReadOnly(True)
-        self.registerField('place*', self.txtPlace)
         self.btnExamine = QPushButton(self.tr("Examine..."))
         hPlace.addWidget(self.txtPlace)
         hPlace.addWidget(self.btnExamine)
@@ -197,7 +310,6 @@ class PageProjectProperties(QWizardPage):
         vPlace = QHBoxLayout()
         self.vtxtPlace = QLineEdit()
         self.vtxtPlace.setReadOnly(True)
-        self.registerField('vplace', self.vtxtPlace)
         self.vbtnExamine = QPushButton(self.tr("Examine..."))
         vPlace.addWidget(self.vtxtPlace)
         vPlace.addWidget(self.vbtnExamine)
@@ -220,19 +332,26 @@ class PageProjectProperties(QWizardPage):
         self.cboLicense.setCurrentIndex(4)
         #Add to Grid
         gbox.addWidget(self.txtName, 0, 1)
-        gbox.addWidget(self.txtFolder, 1, 1)
-        gbox.addLayout(hPlace, 2, 1)
-        gbox.addWidget(self.txtDescription, 3, 1)
-        gbox.addWidget(self.cboLicense, 4, 1)
-        gbox.addLayout(vPlace, 5, 1)
+        gbox.addLayout(hPlace, 1, 1)
+        gbox.addWidget(self.txtDescription, 2, 1)
+        gbox.addWidget(self.cboLicense, 3, 1)
+        gbox.addLayout(vPlace, 4, 1)
         #Signal
         self.connect(self.btnExamine, SIGNAL('clicked()'), self.load_folder)
         self.connect(self.vbtnExamine, SIGNAL('clicked()'),
             self.load_folder_venv)
+        self.connect(self.txtName, SIGNAL('textChanged(const QString&)'),
+            lambda: self.emit(SIGNAL("completeChanged()")))
+
+    def isComplete(self):
+        name = unicode(self.txtName.text()).strip()
+        place = unicode(self.txtPlace.text()).strip()
+        return (len(name) > 0) and (len(place) > 0)
 
     def load_folder(self):
         self.txtPlace.setText(unicode(QFileDialog.getExistingDirectory(
             self, self.tr("New Project Folder"))))
+        self.emit(SIGNAL("completeChanged()"))
 
     def load_folder_venv(self):
         self.vtxtPlace.setText(unicode(QFileDialog.getExistingDirectory(

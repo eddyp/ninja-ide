@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 
 from PyQt4.QtGui import QWidget
 from PyQt4.QtGui import QPushButton
@@ -12,7 +27,6 @@ from PyQt4.QtCore import QString
 from PyQt4.QtCore import Qt
 
 from ninja_ide import resources
-from ninja_ide.tools import styles
 
 
 class RecentProjectItem(QWidget):
@@ -32,12 +46,13 @@ class RecentProjectItem(QWidget):
         self.__content = content.toMap()
         self.__project = project
         self.__favorite = QPushButton(self)
+        self.__favorite.setObjectName('web_list_button')
         self.__delete = QPushButton(self)
+        self.__delete.setObjectName('web_list_button')
         self.__delete.setIcon(QIcon(resources.IMAGES['delProj']))
         self.__name = QLineEdit(self)
         self.__itemRelated = itemRelated
         self.setMouseTracking(True)
-        styles.set_style(self, 'recent-project-list')
         self.__name.setText(self.__content[QString("name")].toString())
 
         if QString("description") in self.__content:

@@ -1,8 +1,24 @@
-# *-* coding: utf-8 *-*
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
+
 from __future__ import absolute_import
 
 import os
-import urllib
+import urllib2
 
 from PyQt4.QtGui import QWidget
 from PyQt4.QtGui import QVBoxLayout
@@ -24,12 +40,14 @@ class ThemesManagerWidget(QDialog):
     def __init__(self, parent):
         QDialog.__init__(self, parent, Qt.Dialog)
         self.setWindowTitle(self.tr("Themes Manager"))
-        self.setModal(True)
         self.resize(700, 500)
 
         vbox = QVBoxLayout(self)
         self._tabs = QTabWidget()
         vbox.addWidget(self._tabs)
+        btnReload = QPushButton(self.tr("Reload"))
+        btnReload.setMaximumWidth(100)
+        vbox.addWidget(btnReload)
         self.overlay = ui_tools.Overlay(self)
         self.overlay.show()
 
@@ -38,12 +56,20 @@ class ThemesManagerWidget(QDialog):
         self.downloadItems = []
 
         #Load Themes with Thread
-        self._thread = ui_tools.ThreadCallback(self.execute_thread)
+        self.connect(btnReload, SIGNAL("clicked()"), self._reload_themes)
+        self._thread = ui_tools.ThreadExecution(self.execute_thread)
         self.connect(self._thread, SIGNAL("finished()"), self.load_skins_data)
+        self._reload_themes()
+
+    def _reload_themes(self):
+        self.overlay.show()
+        self._loading = True
+        self._thread.execute = self.execute_thread
         self._thread.start()
 
     def load_skins_data(self):
         if self._loading:
+            self._tabs.clear()
             self._schemeWidget = SchemeWidget(self, self._schemes)
             self._tabs.addTab(self._schemeWidget, self.tr("Editor Schemes"))
             self._loading = False
@@ -60,13 +86,16 @@ class ThemesManagerWidget(QDialog):
         event.accept()
 
     def execute_thread(self):
-        descriptor_schemes = urllib.urlopen(resources.SCHEMES_URL)
-        schemes = json_manager.parse(descriptor_schemes)
-        schemes = [[name, schemes[name]] for name in schemes]
-        local_schemes = self.get_local_schemes()
-        schemes = [schemes[i] for i in range(len(schemes)) if \
-            os.path.basename(schemes[i][1]) not in local_schemes]
-        self._schemes = schemes
+        try:
+            descriptor_schemes = urllib2.urlopen(resources.SCHEMES_URL)
+            schemes = json_manager.parse(descriptor_schemes)
+            schemes = [(d['name'], d['download']) for d in schemes]
+            local_schemes = self.get_local_schemes()
+            schemes = [schemes[i] for i in range(len(schemes)) if \
+                os.path.basename(schemes[i][1]) not in local_schemes]
+            self._schemes = schemes
+        except urllib2.URLError:
+            self._schemes = []
 
     def get_local_schemes(self):
         if not file_manager.folder_exists(resources.EDITOR_SKINS):
@@ -81,10 +110,13 @@ class ThemesManagerWidget(QDialog):
 
     def download(self, url, folder):
         fileName = os.path.join(folder, os.path.basename(url))
-        content = urllib.urlopen(url)
-        f = open(fileName, 'w')
-        f.write(content.read())
-        f.close()
+        try:
+            content = urllib2.urlopen(url)
+            f = open(fileName, 'w')
+            f.write(content.read())
+            f.close()
+        except urllib2.URLError:
+            return
 
 
 class SchemeWidget(QWidget):

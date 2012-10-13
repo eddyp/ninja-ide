@@ -1,4 +1,19 @@
-# *-* coding: utf-8 *-*
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 from PyQt4.QtGui import QIcon
@@ -35,7 +50,7 @@ class MenuSource(QObject):
         unCommentAction = menuSource.addAction(
             QIcon(resources.IMAGES['uncomment-code']),
             self.tr("Uncomment (%1)").arg(
-                resources.get_shortcut("Comment").toString(
+                resources.get_shortcut("Uncomment").toString(
                     QKeySequence.NativeText)))
         horizontalLineAction = menuSource.addAction(
             self.tr("Insert Horizontal Line (%1)").arg(
@@ -48,15 +63,23 @@ class MenuSource(QObject):
         countCodeLinesAction = menuSource.addAction(
             self.tr("Count Code Lines"))
         menuSource.addSeparator()
+#        tellTaleAction = menuSource.addAction(
+#            self.tr("Tell me a Tale of Code"))
+#        tellTaleAction.setEnabled(False)
         goToDefinitionAction = menuSource.addAction(
+            QIcon(resources.IMAGES['go-to-definition']),
             self.tr("Go To Definition (%1 or %2+Click)").arg(
                 resources.get_shortcut("Go-to-definition").toString(
                     QKeySequence.NativeText),
                 settings.OS_KEY))
         insertImport = menuSource.addAction(
+            QIcon(resources.IMAGES['insert-import']),
             self.tr("Insert &Import (%1)").arg(
                 resources.get_shortcut("Import").toString(
                     QKeySequence.NativeText)))
+        menu_debugging = menuSource.addMenu(self.tr("Debugging Tricks"))
+        insertPrints = menu_debugging.addAction(
+            self.tr("Insert Prints per selected line."))
 #        organizeImportsAction = menuSource.addAction(
 #            self.tr("&Organize Imports"))
 #        removeUnusedImportsAction = menuSource.addAction(
@@ -83,6 +106,14 @@ class MenuSource(QObject):
                 resources.get_shortcut("Remove-line").toString(
                     QKeySequence.NativeText)))
 
+        self.toolbar_items = {
+            'indent-more': indentMoreAction,
+            'indent-less': indentLessAction,
+            'comment': commentAction,
+            'uncomment': unCommentAction,
+            'go-to-definition': goToDefinitionAction,
+            'insert-import': insertImport}
+
         self.connect(goToDefinitionAction, SIGNAL("triggered()"),
             actions.Actions().editor_go_to_definition)
         self.connect(countCodeLinesAction, SIGNAL("triggered()"),
@@ -96,7 +127,7 @@ class MenuSource(QObject):
         self.connect(commentAction, SIGNAL("triggered()"),
             actions.Actions().editor_comment)
         self.connect(unCommentAction, SIGNAL("triggered()"),
-            actions.Actions().editor_comment)
+            actions.Actions().editor_uncomment)
         self.connect(horizontalLineAction, SIGNAL("triggered()"),
             actions.Actions().editor_insert_horizontal_line)
         self.connect(titleCommentAction, SIGNAL("triggered()"),
@@ -121,3 +152,5 @@ class MenuSource(QObject):
             actions.Actions().editor_remove_trailing_spaces)
         self.connect(remove, SIGNAL("triggered()"),
             actions.Actions().editor_remove_line)
+        self.connect(insertPrints, SIGNAL("triggered()"),
+            actions.Actions().editor_insert_debugging_prints)

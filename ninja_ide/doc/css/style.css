@@ -214,22 +214,15 @@ td { vertical-align: top; }
 /* Fonts */
   /* MetaWebPro font family licensed from fontshop.com. WOFF-FTW! */
   @font-face {
-    font-family: 'MetaBlack';
-    src: url('http://mozcom-cdn.mozilla.net/img/fonts/MetaWebPro-Black.eot');
-    src: local('☺'), url('http://mozcom-cdn.mozilla.net/img/fonts/MetaWebPro-Black.woff') format('woff');
     font-weight: bold;
   }
 
   @font-face {
-    font-family: 'Yukarimobile';
-    src: url('../type/yukarimobil-webfont.woff') format('woff');
     font-weight: normal;
     font-style: normal;
   }
 
   @font-face {
-    font-family: 'NovaSquare';
-    src: url('../type/NovaSquare.ttf');
     font-weight: normal;
     font-style: normal;
   }
@@ -274,7 +267,7 @@ header .options ul li a {
 }
 header .options ul li a:hover { color:#777; background:white; }
 
-#main { clear:both; }
+#main { clear:both; overflow: hidden;}
 
   /* Blocks */
   #main div.blocks {
@@ -284,17 +277,21 @@ header .options ul li a:hover { color:#777; background:white; }
     margin-top:20px;
     padding-left:8px;
     padding-top:58px;
+/*
     float:left;
     width:330px;
+*/
   }
+  #main div.blocks p.object{ height: 283px; }
 
   /* Intro */
   #main div.intro {
     padding: 40px 50px;
     width: 300px;
+    float: left;
   }
   #main div.intro h2 {
-    font-family:'Yukarimobile','sMetaBlack', 'sAllan'; font-size:55px;
+    font-size:55px;
     font-weight: bold;
     letter-spacing: -0.03em;
     margin: 0;

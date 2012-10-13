@@ -1,7 +1,23 @@
-# *-* coding: utf-8 *-*
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 from PyQt4.QtGui import QIcon
+from PyQt4.QtGui import QTextCursor
 from PyQt4.QtGui import QKeySequence
 from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import QObject
@@ -49,9 +65,9 @@ class MenuEdit(QObject):
             self.tr("Find in Files (%1)").arg(
                 resources.get_shortcut("Find-in-files").toString(
                     QKeySequence.NativeText)))
-        jumpAction = menuEdit.addAction(
-            self.tr("Jump to Line (%1)").arg(
-                resources.get_shortcut("Jump").toString(
+        locatorAction = menuEdit.addAction(QIcon(resources.IMAGES['locator']),
+            self.tr("Code Locator (%1)").arg(
+                resources.get_shortcut("Code-locator").toString(
                     QKeySequence.NativeText)))
         menuEdit.addSeparator()
         upperAction = menuEdit.addAction(
@@ -64,10 +80,16 @@ class MenuEdit(QObject):
         prefAction = menuEdit.addAction(QIcon(resources.IMAGES['pref']),
             self.tr("Preference&s"))
 
-        toolbar.addAction(cutAction)
-        toolbar.addAction(copyAction)
-        toolbar.addAction(pasteAction)
-        toolbar.addSeparator()
+        self.toolbar_items = {
+            'undo': undoAction,
+            'redo': redoAction,
+            'cut': cutAction,
+            'copy': copyAction,
+            'paste': pasteAction,
+            'find': findAction,
+            'find-replace': findReplaceAction,
+            'find-files': findInFilesAction,
+            'code-locator': locatorAction}
 
         self.connect(cutAction, SIGNAL("triggered()"), self._editor_cut)
         self.connect(copyAction, SIGNAL("triggered()"), self._editor_copy)
@@ -81,31 +103,58 @@ class MenuEdit(QObject):
             status_bar.StatusBar().show)
         self.connect(findWithWordAction, SIGNAL("triggered()"),
             status_bar.StatusBar().show_with_word)
-        self.connect(jumpAction, SIGNAL("triggered()"),
-            lambda: self.jump_to_editor_line())
         self.connect(findReplaceAction, SIGNAL("triggered()"),
             status_bar.StatusBar().show_replace)
         self.connect(findInFilesAction, SIGNAL("triggered()"),
             self._show_find_in_files)
+        self.connect(locatorAction, SIGNAL("triggered()"),
+            status_bar.StatusBar().show_locator)
         self.connect(prefAction, SIGNAL("triggered()"), self._show_preferences)
 
     def _editor_upper(self):
         editorWidget = main_container.MainContainer().get_actual_editor()
         if editorWidget:
-            selection = unicode(editorWidget._text_under_cursor()).upper()
-            editorWidget.textCursor().insertText(selection)
+            editorWidget.textCursor().beginEditBlock()
+            if editorWidget.textCursor().hasSelection():
+                text = unicode(
+                    editorWidget.textCursor().selectedText()).upper()
+            else:
+                text = unicode(editorWidget._text_under_cursor()).upper()
+                editorWidget.moveCursor(QTextCursor.StartOfWord)
+                editorWidget.moveCursor(QTextCursor.EndOfWord,
+                    QTextCursor.KeepAnchor)
+            editorWidget.textCursor().insertText(text)
+            editorWidget.textCursor().endEditBlock()
 
     def _editor_lower(self):
         editorWidget = main_container.MainContainer().get_actual_editor()
         if editorWidget:
-            selection = unicode(editorWidget._text_under_cursor()).lower()
-            editorWidget.textCursor().insertText(selection)
+            editorWidget.textCursor().beginEditBlock()
+            if editorWidget.textCursor().hasSelection():
+                text = unicode(
+                    editorWidget.textCursor().selectedText()).lower()
+            else:
+                text = unicode(editorWidget._text_under_cursor()).lower()
+                editorWidget.moveCursor(QTextCursor.StartOfWord)
+                editorWidget.moveCursor(QTextCursor.EndOfWord,
+                    QTextCursor.KeepAnchor)
+            editorWidget.textCursor().insertText(text)
+            editorWidget.textCursor().endEditBlock()
 
     def _editor_title(self):
         editorWidget = main_container.MainContainer().get_actual_editor()
         if editorWidget:
-            selection = unicode(editorWidget._text_under_cursor()).title()
-            editorWidget.textCursor().insertText(selection)
+            editorWidget.textCursor().beginEditBlock()
+            if editorWidget.textCursor().hasSelection():
+                text = unicode(
+                    editorWidget.textCursor().selectedText()).title()
+            else:
+                text = unicode(editorWidget._text_under_cursor()).title()
+                editorWidget.moveCursor(QTextCursor.StartOfWord)
+                editorWidget.moveCursor(QTextCursor.EndOfWord,
+                    QTextCursor.KeepAnchor)
+            editorWidget.textCursor().insertText(text)
+            editorWidget.textCursor().endEditBlock()
 
     def _editor_cut(self):
         editorWidget = main_container.MainContainer().get_actual_editor()
@@ -131,11 +180,6 @@ class MenuEdit(QObject):
         editorWidget = main_container.MainContainer().get_actual_editor()
         if editorWidget:
             editorWidget.undo()
-
-    def jump_to_editor_line(self):
-        editor = main_container.MainContainer().get_actual_editor()
-        if editor:
-            editor.jump_to_line()
 
     def _show_preferences(self):
         pref = preferences.PreferencesWidget(main_container.MainContainer())

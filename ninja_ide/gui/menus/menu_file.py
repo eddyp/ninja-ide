@@ -1,4 +1,19 @@
-# *-* coding: utf-8 *-*
+# -*- coding: utf-8 -*-
+#
+# This file is part of NINJA-IDE (http://ninja-ide.org).
+#
+# NINJA-IDE is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# any later version.
+#
+# NINJA-IDE is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 
 from PyQt4.QtGui import QIcon
@@ -16,7 +31,7 @@ class MenuFile(QObject):
         QObject.__init__(self)
 
         newAction = menuFile.addAction(QIcon(resources.IMAGES['new']),
-            self.tr("&New (%1)").arg(
+            self.tr("&New File (%1)").arg(
                 resources.get_shortcut("New-file").toString(
                     QKeySequence.NativeText)))
         newProjectAction = menuFile.addAction(
@@ -32,11 +47,12 @@ class MenuFile(QObject):
         saveAsAction = menuFile.addAction(QIcon(resources.IMAGES['saveAs']),
             self.tr("Save &As"))
         saveAllAction = menuFile.addAction(QIcon(resources.IMAGES['saveAll']),
+            self.tr("Save All"))
+        saveProjectAction = menuFile.addAction(QIcon(
+            resources.IMAGES['saveAll']),
             self.tr("Save Pro&ject  (%1)").arg(
                 resources.get_shortcut("Save-project").toString(
                     QKeySequence.NativeText)))
-        saveProfileAction = menuFile.addAction(
-            self.tr("Save Profile (Group together the opened projects)"))
         menuFile.addSeparator()
         reloadFileAction = menuFile.addAction(
             QIcon(resources.IMAGES['reload-file']),
@@ -53,9 +69,13 @@ class MenuFile(QObject):
             self.tr("Open &Project (%1)").arg(
                 resources.get_shortcut("Open-project").toString(
                     QKeySequence.NativeText)))
-#        openProjectTypeAction = menuFile.addAction(
-#            QIcon(resources.IMAGES['openProj']), self.tr("Open Project &Type"))
-        openProfileAction = menuFile.addAction(self.tr("Open Profile"))
+        menuFile.addSeparator()
+        activateProfileAction = menuFile.addAction(
+            QIcon(resources.IMAGES['activate-profile']),
+            self.tr("Activate Profile"))
+        deactivateProfileAction = menuFile.addAction(
+            QIcon(resources.IMAGES['deactivate-profile']),
+            self.tr("Deactivate Profile"))
         menuFile.addSeparator()
         printFile = menuFile.addAction(QIcon(resources.IMAGES['print']),
             self.tr("Pr&int File (%1)").arg(
@@ -74,12 +94,21 @@ class MenuFile(QObject):
             ide.style().standardIcon(QStyle.SP_DialogCloseButton),
             self.tr("&Exit"))
 
-        toolbar.addAction(newAction)
-        toolbar.addAction(newProjectAction)
-        toolbar.addAction(openAction)
-        toolbar.addAction(openProjectAction)
-        toolbar.addAction(saveAction)
-        toolbar.addSeparator()
+        self.toolbar_items = {
+            'new-file': newAction,
+            'new-project': newProjectAction,
+            'save-file': saveAction,
+            'save-as': saveAsAction,
+            'save-all': saveAllAction,
+            'save-project': saveProjectAction,
+            'reload-file': reloadFileAction,
+            'open-file': openAction,
+            'open-project': openProjectAction,
+            'activate-profile': activateProfileAction,
+            'deactivate-profile': deactivateProfileAction,
+            'print-file': printFile,
+            'close-file': closeAction,
+            'close-projects': closeProjectsAction}
 
         self.connect(newAction, SIGNAL("triggered()"),
             ide.mainContainer.add_editor)
@@ -92,11 +121,11 @@ class MenuFile(QObject):
         self.connect(saveAsAction, SIGNAL("triggered()"),
             ide.mainContainer.save_file_as)
         self.connect(saveAllAction, SIGNAL("triggered()"),
+            ide.actions.save_all)
+        self.connect(saveProjectAction, SIGNAL("triggered()"),
             ide.actions.save_project)
         self.connect(openProjectAction, SIGNAL("triggered()"),
             ide.explorer.open_project_folder)
-#        QObject.connect(openProjectTypeAction, SIGNAL(
-#    "triggered()"), self._open_project_type)
         self.connect(closeAction, SIGNAL("triggered()"),
             ide.mainContainer.actualTab.close_tab)
         self.connect(exitAction, SIGNAL("triggered()"),
@@ -104,13 +133,9 @@ class MenuFile(QObject):
         QObject.connect(reloadFileAction, SIGNAL("triggered()"),
             ide.mainContainer.reload_file)
         self.connect(printFile, SIGNAL("triggered()"), ide.actions.print_file)
-        self.connect(saveProfileAction, SIGNAL("triggered()"),
-            ide.actions.save_profile)
-        self.connect(openProfileAction, SIGNAL("triggered()"),
-            ide.actions.open_profile)
         self.connect(closeProjectsAction, SIGNAL("triggered()"),
             ide.explorer.close_opened_projects)
-
-#    def _open_project_type(self):
-#        self.openType = OpenProjectType(central_widget.CentralWidget())
-#        self.openType.show()
+        self.connect(deactivateProfileAction, SIGNAL("triggered()"),
+            ide.actions.deactivate_profile)
+        self.connect(activateProfileAction, SIGNAL("triggered()"),
+            ide.actions.activate_profile)
