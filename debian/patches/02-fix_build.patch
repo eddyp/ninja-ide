@@ -1,0 +1,20 @@
+From: David Paleino <dapal@debian.org>
+Subject: patch setup.py to drop removed directories
+Origin: vendor
+Forwarded: not-needed
+
+---
+ setup.py |    2 --
+ 1 file changed, 2 deletions(-)
+
+--- ninja-ide.orig/setup.py
++++ ninja-ide/setup.py
+@@ -106,8 +106,6 @@ params = {
+         'ninja_ide/doc',
+         'ninja_ide/doc/css',
+         'ninja_ide/doc/img',
+-        'ninja_ide/doc/js',
+-        'ninja_ide/doc/js/libs',
+         'ninja_ide/img'],
+ 
+     #auto create scripts

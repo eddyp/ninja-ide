@@ -1,2 +1,3 @@
 00-fix_paths.patch
 01-use_system_pyflakes.patch
+02-fix_build.patch
