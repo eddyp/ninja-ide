@@ -7,10 +7,10 @@ ninja-ide (2.1.1+ds1-1) UNRELEASED; urgency=low
   * Refresh patches to adapt to the new code
   * Updated debian/copyright
   * Bump debhelper compatibility to 9
-  * Add dependency to modernizr
+  * Add dependency to modernizr, pyinotify
   * Bump Standards-Version to 3.9.4, no changes needed
 
- -- David Paleino <dapal@debian.org>  Sat, 13 Oct 2012 22:03:47 +0200
+ -- David Paleino <dapal@debian.org>  Sat, 13 Oct 2012 22:23:42 +0200
 
 ninja-ide (2.0~b-2) unstable; urgency=low
 
