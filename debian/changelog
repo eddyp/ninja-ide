@@ -1,4 +1,4 @@
-ninja-ide (2.1.1+ds1-1) UNRELEASED; urgency=low
+ninja-ide (2.1.1+ds1-1) unstable; urgency=low
 
   * New upstream version
     - fixed issue with backspace (Closes: #689502)
@@ -11,7 +11,7 @@ ninja-ide (2.1.1+ds1-1) UNRELEASED; urgency=low
   * Add dependency to modernizr, pyinotify
   * Bump Standards-Version to 3.9.4, no changes needed
 
- -- David Paleino <dapal@debian.org>  Sat, 13 Oct 2012 22:23:42 +0200
+ -- David Paleino <dapal@debian.org>  Wed, 14 Nov 2012 16:21:14 +0100
 
 ninja-ide (2.0~b-2) unstable; urgency=low
 
