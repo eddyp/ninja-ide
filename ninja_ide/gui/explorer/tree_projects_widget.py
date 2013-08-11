@@ -16,6 +16,7 @@
 # along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 import os
 
@@ -36,6 +37,7 @@ from PyQt4.QtGui import QIcon
 from PyQt4.QtGui import QStyle
 from PyQt4.QtGui import QCursor
 from PyQt4.QtCore import Qt
+from PyQt4.QtCore import QTimer
 from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import QUrl
 from PyQt4.QtGui import QDesktopServices
@@ -44,8 +46,8 @@ from ninja_ide import resources
 from ninja_ide.core import settings
 from ninja_ide.core import file_manager
 from ninja_ide.core.filesystem_notifications import NinjaFileSystemWatcher
-from ninja_ide.core.filesystem_notifications.base_watcher import ADDED, \
-                                                    DELETED, REMOVE, RENAME
+from ninja_ide.core.filesystem_notifications.base_watcher import ADDED,\
+    DELETED, REMOVE, RENAME
 from ninja_ide.tools import json_manager
 from ninja_ide.tools import ui_tools
 from ninja_ide.gui.main_panel import main_container
@@ -65,6 +67,7 @@ class TreeProjectsWidget(QTreeWidget):
     closeFilesFromProjectClosed(QString)
     addProjectToConsole(QString)
     removeProjectFromConsole(QString)
+    projectPropertiesUpdated(QTreeWidgetItem)
     """
 
 ###############################################################################
@@ -96,6 +99,8 @@ class TreeProjectsWidget(QTreeWidget):
         self._thread_execution = {}
         self.__enableCloseNotification = True
         self._fileWatcher = NinjaFileSystemWatcher
+        self._refresh_projects_queue = []
+        self._timer_running = False
 
         self.header().setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.header().setResizeMode(0, QHeaderView.ResizeToContents)
@@ -105,10 +110,15 @@ class TreeProjectsWidget(QTreeWidget):
         self.connect(self, SIGNAL(
             "customContextMenuRequested(const QPoint &)"),
             self._menu_context_tree)
-        self.connect(self, SIGNAL("itemClicked(QTreeWidgetItem *, int)"),
-            self._open_file)
+
+        signal_name = "itemClicked(QTreeWidgetItem *, int)"
+        # For windows double click instead of single click
+        if settings.IS_WINDOWS:
+            signal_name = "itemDoubleClicked(QTreeWidgetItem *, int)"
+
+        self.connect(self, SIGNAL(signal_name), self._open_file)
         self.connect(self._fileWatcher, SIGNAL("fileChanged(int, QString)"),
-            self._refresh_project_by_path)
+                     self._refresh_project_by_path)
         self.itemExpanded.connect(self._item_expanded)
         self.itemCollapsed.connect(self._item_collapsed)
         self.mute_signals = False
@@ -197,36 +207,36 @@ class TreeProjectsWidget(QTreeWidget):
         actionRunProject = menu.addAction(QIcon(
             resources.IMAGES['play']), self.tr("Run Project"))
         self.connect(actionRunProject, SIGNAL("triggered()"),
-            SIGNAL("runProject()"))
+                     SIGNAL("runProject()"))
         actionMainProject = menu.addAction(self.tr("Set as Main Project"))
         self.connect(actionMainProject, SIGNAL("triggered()"),
-            lambda: self.set_default_project(item))
+                     lambda: self.set_default_project(item))
         if item.addedToConsole:
             actionRemoveFromConsole = menu.addAction(
                 self.tr("Remove this Project from the Python Console"))
             self.connect(actionRemoveFromConsole, SIGNAL("triggered()"),
-                self._remove_project_from_console)
+                         self._remove_project_from_console)
         else:
             actionAdd2Console = menu.addAction(
                 self.tr("Add this Project to the Python Console"))
             self.connect(actionAdd2Console, SIGNAL("triggered()"),
-                self._add_project_to_console)
+                         self._add_project_to_console)
         actionProperties = menu.addAction(QIcon(resources.IMAGES['pref']),
-            self.tr("Project Properties"))
+                                          self.tr("Project Properties"))
         self.connect(actionProperties, SIGNAL("triggered()"),
-            self.open_project_properties)
+                     self.open_project_properties)
 
         menu.addSeparator()
         action_refresh = menu.addAction(
             self.style().standardIcon(QStyle.SP_BrowserReload),
             self.tr("Refresh Project"))
         self.connect(action_refresh, SIGNAL("triggered()"),
-            self._refresh_project)
+                     self._refresh_project)
         action_close = menu.addAction(
             self.style().standardIcon(QStyle.SP_DialogCloseButton),
             self.tr("Close Project"))
         self.connect(action_close, SIGNAL("triggered()"),
-            self._close_project)
+                     self._close_project)
         #menu for the project
         for m in self.extra_menus_by_scope['project']:
             if isinstance(m, QMenu):
@@ -235,21 +245,21 @@ class TreeProjectsWidget(QTreeWidget):
 
     def _add_context_menu_for_folders(self, menu, item):
         action_add_file = menu.addAction(QIcon(resources.IMAGES['new']),
-                    self.tr("Add New File"))
+                                         self.tr("Add New File"))
         self.connect(action_add_file, SIGNAL("triggered()"),
-            self._add_new_file)
+                     self._add_new_file)
         action_add_folder = menu.addAction(QIcon(
             resources.IMAGES['openProj']), self.tr("Add New Folder"))
         self.connect(action_add_folder, SIGNAL("triggered()"),
-            self._add_new_folder)
+                     self._add_new_folder)
         action_create_init = menu.addAction(
             self.tr("Create '__init__' Complete"))
         self.connect(action_create_init, SIGNAL("triggered()"),
-            self._create_init)
+                     self._create_init)
         if item.isFolder and (item.parent() is not None):
             action_remove_folder = menu.addAction(self.tr("Remove Folder"))
             self.connect(action_remove_folder, SIGNAL("triggered()"),
-                self._delete_folder)
+                         self._delete_folder)
         #Folders but not the root
         if item.isFolder and item.parent() is not None:
             for m in self.extra_menus_by_scope['folder']:
@@ -265,18 +275,18 @@ class TreeProjectsWidget(QTreeWidget):
             self.style().standardIcon(QStyle.SP_DialogCloseButton),
             self.tr("Delete File"))
         self.connect(action_remove_file, SIGNAL("triggered()"),
-            self._delete_file)
+                     self._delete_file)
         self.connect(action_rename_file, SIGNAL("triggered()"),
-            self._rename_file)
+                     self._rename_file)
         self.connect(action_copy_file, SIGNAL("triggered()"),
-            self._copy_file)
+                     self._copy_file)
         self.connect(action_move_file, SIGNAL("triggered()"),
-            self._move_file)
+                     self._move_file)
         #Allow to edit Qt UI files with the appropiate program
         if item.lang() == 'ui':
             action_edit_ui_file = menu.addAction(self.tr("Edit UI File"))
             self.connect(action_edit_ui_file, SIGNAL("triggered()"),
-                self._edit_ui_file)
+                         self._edit_ui_file)
         #menu per file language (legacy plugin API)!
         for m in self.extra_menus.get(item.lang(), ()):
             if isinstance(m, QMenu):
@@ -302,7 +312,7 @@ class TreeProjectsWidget(QTreeWidget):
 
     def _open_file(self, item, column):
         if item.childCount() == 0 and not item.isFolder:
-            fileName = os.path.join(item.path, unicode(item.text(column)))
+            fileName = os.path.join(item.path, item.text(column))
             main_container.MainContainer().open_file(fileName)
 
     def _get_project_root(self, item=None):
@@ -323,18 +333,29 @@ class TreeProjectsWidget(QTreeWidget):
         proj = project_properties_widget.ProjectProperties(item, self)
         proj.show()
 
+    def _timeout(self):
+        projects = set(self._refresh_projects_queue)
+        self._refresh_projects_queue = []
+        self._timer_running = False
+        for prefresh in projects:
+            self._refresh_project(prefresh)
+
     def _refresh_project_by_path(self, event, folder):
         if event not in (DELETED, ADDED, REMOVE, RENAME):
             return
-        folder = unicode(folder)
         oprojects = self.get_open_projects()
         for each_project in oprojects:
-            p_path = unicode(each_project.path)
+            p_path = each_project.path
             if file_manager.belongs_to_folder(p_path, folder) and \
                file_manager.is_supported_extension(folder,
-                   each_project.extensions) and folder[:1] != '.':
-                self._refresh_project(each_project)
+                                                   each_project.extensions) \
+               and folder[:1] != '.':
+                self._refresh_projects_queue.append(each_project)
                 break
+        if not self._timer_running:
+            self._timeout()
+            QTimer.singleShot(3000, self._timeout)
+            self._timer_running = True
 
     def _refresh_project(self, item=None):
         if item is None:
@@ -345,12 +366,12 @@ class TreeProjectsWidget(QTreeWidget):
         if item.parent() is None:
             path = item.path
         else:
-            path = file_manager.create_path(item.path, unicode(item.text(0)))
+            path = file_manager.create_path(item.path, item.text(0))
 
         thread = ui_tools.ThreadProjectExplore()
         self._thread_execution[path] = thread
         self.connect(thread, SIGNAL("folderDataRefreshed(PyQt_PyObject)"),
-            self._callback_refresh_project)
+                     self._callback_refresh_project)
         self.connect(thread, SIGNAL("finished()"), self._clean_threads)
         thread.refresh_project(path, item, parentItem.extensions)
 
@@ -361,7 +382,9 @@ class TreeProjectsWidget(QTreeWidget):
             if thread and not thread.isRunning():
                 paths_to_delete.append(path)
         for path in paths_to_delete:
-            self._thread_execution.pop(path, None)
+            thread = self._thread_execution.pop(path, None)
+            if thread:
+                thread.wait()
 
     def _callback_refresh_project(self, value):
         path, item, structure = value
@@ -369,6 +392,9 @@ class TreeProjectsWidget(QTreeWidget):
         self._load_folder(structure, path, item)
         #todo: refresh completion
         item.setExpanded(True)
+        if isinstance(item, ProjectTree):
+            self.emit(SIGNAL("projectPropertiesUpdated(QTreeWidgetItem)"),
+                      item)
 
     def _close_project(self):
         item = self.currentItem()
@@ -395,9 +421,9 @@ class TreeProjectsWidget(QTreeWidget):
             pathFolder = os.path.join(item.path, str(item.text(0)))
         try:
             file_manager.create_init_file_complete(pathFolder)
-        except file_manager.NinjaFileExistsException, ex:
+        except file_manager.NinjaFileExistsException as ex:
             QMessageBox.information(self, self.tr("Create INIT fail"),
-                ex.message)
+                                    ex.message)
         self._refresh_project(item)
 
     def _add_new_file(self):
@@ -405,10 +431,10 @@ class TreeProjectsWidget(QTreeWidget):
         if item.parent() is None:
             pathForFile = item.path
         else:
-            pathForFile = os.path.join(item.path, unicode(item.text(0)))
+            pathForFile = os.path.join(item.path, item.text(0))
         result = QInputDialog.getText(self, self.tr("New File"),
-            self.tr("Enter the File Name:"))
-        fileName = unicode(result[0])
+                                      self.tr("Enter the File Name:"))
+        fileName = result[0]
 
         if result[1] and fileName.strip() != '':
             try:
@@ -421,13 +447,10 @@ class TreeProjectsWidget(QTreeWidget):
                 subitem.setIcon(0, self._get_file_icon(name))
                 mainContainer = main_container.MainContainer()
                 mainContainer.open_file(fileName)
-                editorWidget = mainContainer.get_actual_editor()
-                editorWidget.textCursor().insertText("# -*- coding: utf-8 *-*")
-                main_container.MainContainer().save_file()
-            except file_manager.NinjaFileExistsException, ex:
+            except file_manager.NinjaFileExistsException as ex:
                 QMessageBox.information(self, self.tr("File Already Exists"),
-                    self.tr("Invalid Path: the file '%s' already exists." %
-                        ex.filename))
+                    (self.tr("Invalid Path: the file '%s' already exists.") %
+                     ex.filename))
 
     def add_existing_file(self, path):
         relative = file_manager.convert_to_relative(
@@ -435,7 +458,7 @@ class TreeProjectsWidget(QTreeWidget):
         paths = relative.split(os.sep)[:-1]
         itemParent = self._actualProject
         for p in paths:
-            for i in xrange(itemParent.childCount()):
+            for i in range(itemParent.childCount()):
                 item = itemParent.child(i)
                 if item.text(0) == p:
                     itemParent = item
@@ -452,10 +475,10 @@ class TreeProjectsWidget(QTreeWidget):
         if item.parent() is None:
             pathForFolder = item.path
         else:
-            pathForFolder = os.path.join(item.path, unicode(item.text(0)))
+            pathForFolder = os.path.join(item.path, item.text(0))
         result = QInputDialog.getText(self, self.tr("New Folder"),
-            self.tr("Enter the Folder Name:"))
-        folderName = unicode(result[0])
+                                      self.tr("Enter the Folder Name:"))
+        folderName = result[0]
 
         if result[1] and folderName.strip() != '':
             folderName = os.path.join(pathForFolder, folderName)
@@ -469,12 +492,12 @@ class TreeProjectsWidget(QTreeWidget):
     def _delete_file(self):
         item = self.currentItem()
         val = QMessageBox.question(self, self.tr("Delete File"),
-                self.tr("Do you want to delete the following file: ")
-                + os.path.join(item.path, unicode(item.text(0))),
-                QMessageBox.Yes, QMessageBox.No)
+                       self.tr("Do you want to delete the following file: ")
+                       + os.path.join(item.path, item.text(0)),
+                       QMessageBox.Yes, QMessageBox.No)
         if val == QMessageBox.Yes:
-            path = file_manager.create_path(item.path, unicode(item.text(0)))
-            file_manager.delete_file(item.path, unicode(item.text(0)))
+            path = file_manager.create_path(item.path, item.text(0))
+            file_manager.delete_file(item.path, item.text(0))
             index = item.parent().indexOfChild(item)
             item.parent().takeChild(index)
             mainContainer = main_container.MainContainer()
@@ -484,11 +507,11 @@ class TreeProjectsWidget(QTreeWidget):
     def _delete_folder(self):
         item = self.currentItem()
         val = QMessageBox.question(self, self.tr("Delete Folder"),
-                self.tr("Do you want to delete the following folder: ")
-                + os.path.join(item.path, unicode(item.text(0))),
-                QMessageBox.Yes, QMessageBox.No)
+                       self.tr("Do you want to delete the following folder: ")
+                       + os.path.join(item.path, item.text(0)),
+                       QMessageBox.Yes, QMessageBox.No)
         if val == QMessageBox.Yes:
-            file_manager.delete_folder(item.path, unicode(item.text(0)))
+            file_manager.delete_folder(item.path, item.text(0))
             index = item.parent().indexOfChild(item)
             item.parent().takeChild(index)
 
@@ -497,14 +520,14 @@ class TreeProjectsWidget(QTreeWidget):
         if item.parent() is None:
             pathForFile = item.path
         else:
-            pathForFile = os.path.join(item.path, unicode(item.text(0)))
+            pathForFile = os.path.join(item.path, item.text(0))
         result = QInputDialog.getText(self, self.tr("Rename File"),
-            self.tr("Enter New File Name:"), text=item.text(0))
-        fileName = unicode(result[0])
+                          self.tr("Enter New File Name:"), text=item.text(0))
+        fileName = result[0]
 
         if result[1] and fileName.strip() != '':
             fileName = os.path.join(
-                file_manager.get_folder(unicode(pathForFile)), fileName)
+                file_manager.get_folder(pathForFile), fileName)
             if pathForFile == fileName:
                 return
             try:
@@ -514,15 +537,15 @@ class TreeProjectsWidget(QTreeWidget):
                 if mainContainer.is_open(pathForFile):
                     mainContainer.change_open_tab_name(pathForFile, fileName)
                 subitem = ProjectItem(item.parent(), name,
-                    file_manager.get_folder(unicode(fileName)))
+                                      file_manager.get_folder(fileName))
                 subitem.setToolTip(0, name)
                 subitem.setIcon(0, self._get_file_icon(name))
                 index = item.parent().indexOfChild(item)
                 subitem.parent().takeChild(index)
-            except file_manager.NinjaFileExistsException, ex:
+            except file_manager.NinjaFileExistsException as ex:
                 QMessageBox.information(self, self.tr("File Already Exists"),
-                    self.tr("Invalid Path: the file '%s' already exists." %
-                        ex.filename))
+                    (self.tr("Invalid Path: the file '%s' already exists.") %
+                     ex.filename))
 
     def _copy_file(self):
         #get the selected QTreeWidgetItem
@@ -530,38 +553,35 @@ class TreeProjectsWidget(QTreeWidget):
         if item.parent() is None:
             pathForFile = item.path
         else:
-            pathForFile = os.path.join(item.path, unicode(item.text(0)))
+            pathForFile = os.path.join(item.path, item.text(0))
         pathProjects = [p.path for p in self.get_open_projects()]
         addToProject = ui_tools.AddToProject(pathProjects, self)
         addToProject.setWindowTitle(self.tr("Copy File to"))
         addToProject.exec_()
         if not addToProject.pathSelected:
             return
-        name = unicode(QInputDialog.getText(self,
-            self.tr("Copy File"),
-            self.tr("File Name:"),
-            text=item.text(0))[0])
+        name = QInputDialog.getText(self, self.tr("Copy File"),
+                                    self.tr("File Name:"), text=item.text(0))[0]
         if not name:
             QMessageBox.information(self, self.tr("Invalid Name"),
-                self.tr("The file name is empty, please enter a name"))
+                        self.tr("The file name is empty, please enter a name"))
             return
-        path = file_manager.create_path(
-            unicode(addToProject.pathSelected), name)
+        path = file_manager.create_path(addToProject.pathSelected, name)
         try:
             content = file_manager.read_file_content(pathForFile)
             path = file_manager.store_file_content(path, content, newFile=True)
             self.add_existing_file(path)
-        except file_manager.NinjaFileExistsException, ex:
+        except file_manager.NinjaFileExistsException as ex:
                 QMessageBox.information(self, self.tr("File Already Exists"),
-                    self.tr("Invalid Path: the file '%s' already exists." %
-                        ex.filename))
+                    (self.tr("Invalid Path: the file '%s' already exists.") %
+                     ex.filename))
 
     def _move_file(self):
         item = self.currentItem()
         if item.parent() is None:
             pathForFile = item.path
         else:
-            pathForFile = os.path.join(item.path, unicode(item.text(0)))
+            pathForFile = os.path.join(item.path, item.text(0))
         pathProjects = [p.path for p in self.get_open_projects()]
         addToProject = ui_tools.AddToProject(pathProjects, self)
         addToProject.setWindowTitle(self.tr("Copy File to"))
@@ -569,8 +589,7 @@ class TreeProjectsWidget(QTreeWidget):
         if not addToProject.pathSelected:
             return
         name = file_manager.get_basename(pathForFile)
-        path = file_manager.create_path(
-            unicode(addToProject.pathSelected), name)
+        path = file_manager.create_path(addToProject.pathSelected, name)
         try:
             content = file_manager.read_file_content(pathForFile)
             path = file_manager.store_file_content(path, content, newFile=True)
@@ -578,17 +597,23 @@ class TreeProjectsWidget(QTreeWidget):
             index = item.parent().indexOfChild(item)
             item.parent().takeChild(index)
             self.add_existing_file(path)
-        except file_manager.NinjaFileExistsException, ex:
+            # Update path of opened file
+            main = main_container.MainContainer()
+            if main.is_open(pathForFile):
+                widget = main.get_widget_for_path(pathForFile)
+                if widget:
+                    widget.ID = path
+        except file_manager.NinjaFileExistsException as ex:
                 QMessageBox.information(self, self.tr("File Already Exists"),
-                    self.tr("Invalid Path: the file '%s' already exists." %
-                        ex.filename))
+                    (self.tr("Invalid Path: the file '%s' already exists.") %
+                     ex.filename))
 
     def _edit_ui_file(self):
         item = self.currentItem()
         if item.parent() is None:
             pathForFile = item.path
         else:
-            pathForFile = os.path.join(item.path, unicode(item.text(0)))
+            pathForFile = os.path.join(item.path, item.text(0))
         pathForFile = "file://%s" % pathForFile
         #open the correct program to edit Qt UI files!
         QDesktopServices.openUrl(QUrl(pathForFile, QUrl.TolerantMode))
@@ -617,7 +642,7 @@ class TreeProjectsWidget(QTreeWidget):
         name = file_manager.get_basename(folder)
         item = ProjectTree(self, name, folder)
         item.isFolder = True
-        item.setToolTip(0, name)
+        item.setToolTip(0, folder)
         item.setIcon(0, QIcon(resources.IMAGES['tree-app']))
         self._projects[folder] = item
         if folderStructure[folder][1] is not None:
@@ -631,6 +656,7 @@ class TreeProjectsWidget(QTreeWidget):
             self.setCurrentItem(item)
         self._fileWatcher.add_watch(folder)
         completion_daemon.add_project_folder(folder)
+        self.sortItems(0, Qt.AscendingOrder)
 
     def _load_folder(self, folderStructure, folder, parentItem):
         """Load the Tree Project structure recursively."""
@@ -649,23 +675,22 @@ class TreeProjectsWidget(QTreeWidget):
             for _folder in folders:
                 if _folder.startswith('.'):
                     continue
-                subfolder = ProjectItem(parentItem, _folder, folder)
-                subfolder.isFolder = True
+                subfolder = ProjectItem(parentItem, _folder, folder, True)
                 subfolder.setToolTip(0, _folder)
                 subfolder.setIcon(0, QIcon(resources.IMAGES['tree-folder']))
                 subFolderPath = os.path.join(folder, _folder)
                 if subFolderPath in self.state_index:
                     subfolder.setExpanded(True)
                 self._load_folder(folderStructure,
-                    subFolderPath, subfolder)
+                                  subFolderPath, subfolder)
 
     def _get_file_icon(self, fileName):
         return QIcon(self.images.get(file_manager.get_file_extension(fileName),
-            resources.IMAGES['tree-generic']))
+                                     resources.IMAGES['tree-generic']))
 
     def get_item_for_path(self, path):
         items = self.findItems(file_manager.get_basename(path),
-            Qt.MatchRecursive, 0)
+                               Qt.MatchRecursive, 0)
         folder = file_manager.get_folder(path)
         for item in items:
             if file_manager.belongs_to_folder(folder, item.path):
@@ -674,7 +699,7 @@ class TreeProjectsWidget(QTreeWidget):
     def get_project_by_name(self, projectName):
         """Return the name of the project item based on the project name."""
         # Return the item or None if it's not found
-        for item in self._projects.values():
+        for item in list(self._projects.values()):
             if item.name == projectName:
                 return item
 
@@ -697,21 +722,21 @@ class TreeProjectsWidget(QTreeWidget):
         return rootItem.lang()
 
     def get_open_projects(self):
-        return self._projects.values()
+        return list(self._projects.values())
 
     def is_open(self, path):
-        return len([True for item in self._projects.values()
-            if item.path == path]) != 0
+        return len([True for item in list(self._projects.values())
+                    if item.path == path]) != 0
 
     def _set_current_project(self, path):
-        for item in self._projects.values():
+        for item in list(self._projects.values()):
             if item.path == path:
                 self.set_default_project(item)
                 break
 
     def _close_open_projects(self):
         self.__enableCloseNotification = False
-        for i in xrange(self.topLevelItemCount()):
+        for i in range(self.topLevelItemCount()):
             self.setCurrentItem(self.topLevelItem(0))
             self._close_project()
         self.__enableCloseNotification = True
@@ -735,11 +760,11 @@ class TreeProjectsWidget(QTreeWidget):
 
 class ProjectItem(QTreeWidgetItem):
 
-    def __init__(self, parent, name, path):
+    def __init__(self, parent, name, path, isFolder=False):
         QTreeWidgetItem.__init__(self, parent)
         self.setText(0, name)
         self.path = path
-        self.isFolder = False
+        self.isFolder = isFolder
 
     @property
     def isProject(self):
@@ -747,16 +772,25 @@ class ProjectItem(QTreeWidgetItem):
         return False
 
     def lang(self):
-        return file_manager.get_file_extension(unicode(self.text(0)))
+        return file_manager.get_file_extension(self.text(0))
 
     def get_full_path(self):
         '''
         Returns the full path of the file
         '''
-        return os.path.join(self.path, unicode(self.text(0)))
+        return os.path.join(self.path, self.text(0))
 
     def set_item_icon(self, icon):
         self.setIcon(0, icon)
+
+    def __lt__(self, otherItem):
+        column = self.treeWidget().sortColumn()
+        my_text = ('1%s' % self.text(column).lower() if
+                   self.isFolder else '0%s' % self.text(column).lower())
+        other_text = ('1%s' % otherItem.text(column).lower() if
+                      otherItem.isFolder else '0%s'
+                      % otherItem.text(column).lower())
+        return my_text < other_text
 
 
 class ProjectTree(QTreeWidgetItem):
@@ -780,10 +814,13 @@ class ProjectTree(QTreeWidgetItem):
         self.mainFile = project.get('mainFile', '')
         self.preExecScript = project.get('preExecScript', '')
         self.postExecScript = project.get('postExecScript', '')
+        self.indentation = project.get('indentation', settings.INDENT)
+        self.useTabs = project.get('use-tabs', settings.USE_TABS)
         self.extensions = project.get('supported-extensions',
-            settings.SUPPORTED_EXTENSIONS)
+                                      settings.SUPPORTED_EXTENSIONS)
         self.pythonPath = project.get('pythonPath', settings.PYTHON_PATH)
         self.PYTHONPATH = project.get('PYTHONPATH', '')
+        self.additional_builtins = project.get('additional_builtins', [])
         self.programParams = project.get('programParams', '')
         self.venv = project.get('venv', '')
         self.related_projects = project.get('relatedProjects', [])
@@ -809,6 +846,8 @@ class ProjectTree(QTreeWidgetItem):
         Returns the full path of the project
         '''
         project_file = json_manager.get_ninja_project_file(self.path)
+        if not project_file:  # FIXME: If we dont have a project file
+            project_file = ''     # we should do SOMETHING! like kill zombies!
         return os.path.join(self.path, project_file)
 
 
@@ -818,7 +857,8 @@ class FoldingContextMenu(QMenu):
     """
 
     def __init__(self, tree):
-        super(FoldingContextMenu, self).__init__(tree.tr("Fold/Unfold"))
+        super(FoldingContextMenu, self).__init__()
+        self.setTitle(self.tr("Fold/Unfold"))
         self._tree = tree
         fold_project = self.addAction(self.tr("Fold the project"))
         unfold_project = self.addAction(self.tr("Unfold the project"))
@@ -827,13 +867,13 @@ class FoldingContextMenu(QMenu):
         unfold_all_projects = self.addAction(self.tr("Unfold all projects"))
 
         self.connect(fold_project, SIGNAL("triggered()"),
-            lambda: self._fold_unfold_project(False))
+                     lambda: self._fold_unfold_project(False))
         self.connect(unfold_project, SIGNAL("triggered()"),
-            lambda: self._fold_unfold_project(True))
+                     lambda: self._fold_unfold_project(True))
         self.connect(fold_all_projects, SIGNAL("triggered()"),
-            self._fold_all_projects)
+                     self._fold_all_projects)
         self.connect(unfold_all_projects, SIGNAL("triggered()"),
-            self._unfold_all_projects)
+                     self._unfold_all_projects)
 
     def _recursive_fold_unfold(self, item, expand):
         if item.isFolder:

@@ -3,11 +3,11 @@
     "//"
   ],
   "multiline_comment": {
-    "open": "/\\*",
-    "close": "\\*/"
+    "open": "/*",
+    "close": "*/"
   },
   "extension": [
-    "js"
+    "js", "qml"
   ],
   "definition": [
     "function"

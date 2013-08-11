@@ -26,7 +26,7 @@ __author__ = "The NINJA-IDE Team"
 __mail__ = "ninja-ide at googlegroups dot com"
 __url__ = "http://www.ninja-ide.org"
 __source__ = "https://github.com/ninja-ide/ninja-ide"
-__version__ = "2.1.1"
+__version__ = "2.3"
 __license__ = "GPL3"
 
 ###############################################################################
@@ -39,6 +39,19 @@ and allows developers to create applications for several purposes using all the
 tools and utilities of NINJA-IDE, making the task of writing software easier
 and more enjoyable.
 """
+
+
+###############################################################################
+# SET PYQT API 2
+###############################################################################
+
+import sip
+API_NAMES = ["QDate", "QDateTime", "QString", "QTime", "QUrl", "QTextStream",
+             "QVariant"]
+API_VERSION = 2
+for name in API_NAMES:
+    sip.setapi(name, API_VERSION)
+
 
 ###############################################################################
 # START

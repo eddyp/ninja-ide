@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from PyQt4.QtCore import QThread
 
@@ -48,8 +49,6 @@ class Pep8Checker(QThread):
         if file_ext in exts:
             self.reset()
             source = self._editor.get_text()
-            if self._encoding is not None:
-                source = source.encode(self._encoding)
             tempData = pep8mod.run_check(self._path, source)
             i = 0
             while i < len(tempData):
@@ -59,11 +58,11 @@ class Pep8Checker(QThread):
                     startPos = tempData[i].find('.%s:' % file_ext) + offset
                     endPos = tempData[i].find(':', startPos)
                     lineno = int(tempData[i][startPos:endPos]) - 1
-                    error = unicode(tempData[i][tempData[i].find(
-                        ':', endPos + 1) + 2:])
-                    line = u'\n'.join(
+                    error = tempData[i][tempData[i].find(
+                        ':', endPos + 1) + 2:]
+                    line = '\n'.join(
                         [error, tempData[i + 1], tempData[i + 2]])
-                except:
+                except Exception:
                     line = ''
                 finally:
                     i += 3
