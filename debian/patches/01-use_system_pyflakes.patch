@@ -7,14 +7,16 @@ Forwarded: no
  ninja_ide/gui/editor/errors_checker.py |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
---- ninja-ide.orig/ninja_ide/gui/editor/errors_checker.py
-+++ ninja-ide/ninja_ide/gui/editor/errors_checker.py
-@@ -23,7 +23,7 @@ from PyQt4.QtCore import QThread
- 
+Index: ninja-ide/ninja_ide/gui/editor/errors_checker.py
+===================================================================
+--- ninja-ide.orig/ninja_ide/gui/editor/errors_checker.py	2013-08-11 17:28:51.000000000 +0300
++++ ninja-ide/ninja_ide/gui/editor/errors_checker.py	2013-08-11 17:30:40.000000000 +0300
+@@ -28,7 +28,7 @@
  from ninja_ide.core import file_manager
  from ninja_ide.core import settings
--from ninja_ide.dependencies.pyflakes_mod import checker
-+from pyflakes import checker
+ try:
+-    from ninja_ide.dependencies.pyflakes_mod import checker
++    from pyflakes import checker
+ except ImportError:
+     print('Errors checker not working in Python3')
  
- 
- class ErrorsChecker(QThread):

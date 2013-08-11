@@ -2,6 +2,7 @@ ninja-ide (2.3-1) UNRELEASED; urgency=low
 
   [ Eddy Petrișor ]
   * New upstream version 2.3
+  * refresh patches
 
  -- David Paleino <dapal@debian.org>  Sun, 11 Aug 2013 16:34:11 +0300
 
