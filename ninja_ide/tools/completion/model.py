@@ -15,6 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 
+try:
+    unicode
+except NameError:
+    # Python 3
+    basestring = unicode = str  # lint:ok
+
 
 MODULES = None
 late_resolution = 0
@@ -33,8 +39,8 @@ def filter_data_type(data_types):
             occurrences[type_.name] = item
     values = [occurrences[key][0] for key in occurrences]
     maximum = max(values)
-    data_type = [occurrences[key][1] for key in occurrences \
-                if occurrences[key][0] == maximum]
+    data_type = [occurrences[key][1] for key in occurrences
+                 if occurrences[key][0] == maximum]
     return data_type[0]
 
 
@@ -193,13 +199,16 @@ class Module(Structure):
         canonical_attrs = remove_function_arguments(child_attrs)
         if not scope:
             value = self.imports.get(main_attr,
-                self.attributes.get(main_attr,
-                self.functions.get(main_attr,
-                self.classes.get(main_attr, None))))
+                                     self.attributes.get(main_attr,
+                                                         self.functions.get(
+                                                             main_attr,
+                                                             self.classes.get(
+                                                                 main_attr,
+                                                                 None))))
             if value is not None and value.__class__ is not Clazz:
                 data_type = value.get_data_type()
                 result['found'], result['type'] = True, data_type
-                if child_attrs or (isinstance(data_type, basestring) and \
+                if child_attrs or (isinstance(data_type, basestring) and
                    data_type.endswith(main_attr)):
                     result['main_attr_replace'] = True
             elif value.__class__ is Clazz:
@@ -215,7 +224,7 @@ class Module(Structure):
         elif scope:
             scope_name = scope[0]
             structure = self.classes.get(scope_name,
-                self.functions.get(scope_name, None))
+                                         self.functions.get(scope_name, None))
             if structure is not None:
                 attrs = [main_attr] + canonical_attrs.split('.')
                 if len(attrs) > 1 and attrs[1] == '':
@@ -224,8 +233,10 @@ class Module(Structure):
                     structure, attrs, scope[1:])
                 if not result['found']:
                     value = self.imports.get(main_attr,
-                        self.attributes.get(main_attr,
-                        self.functions.get(main_attr, None)))
+                                             self.attributes.get(
+                                                 main_attr,
+                                                 self.functions.get(main_attr,
+                                                                    None)))
                     if value is not None:
                         data_type = value.get_data_type()
                         result['found'], result['type'] = True, data_type
@@ -256,7 +267,7 @@ class Module(Structure):
             return result
         attr = attrs[0]
         value = structure.attributes.get(attr,
-            structure.functions.get(attr, None))
+                                         structure.functions.get(attr, None))
         if value is None:
             return result
         data_type = value.get_data_type()
@@ -357,14 +368,14 @@ class Clazz(Structure):
                         continue
                     assign = Assign(attr)
                     assign.add_data(0, parent_name + attr, '',
-                        parent_name + attr)
+                                    parent_name + attr)
                     attributes[attr] = assign
                 for func in data.get('functions', []):
                     if func[:2] == '__' and func[-2:] == '__':
                         continue
                     assign = Assign(func)
                     assign.add_data(0, parent_name + attr, '',
-                        parent_name + attr)
+                                    parent_name + attr)
                     functions[func] = assign
                 self.attributes.update(attributes)
                 self.functions.update(functions)
@@ -385,8 +396,8 @@ class Function(Structure):
             self.return_type.append(info)
 
     def get_data_type(self):
-        possible = [d.data_type for d in self.return_type \
-                    if d.data_type is not late_resolution and \
+        possible = [d.data_type for d in self.return_type
+                    if d.data_type is not late_resolution and
                     d.data_type is not None]
         if possible:
             return filter_data_type(possible)
@@ -407,7 +418,7 @@ class Assign(object):
             self.data.append(info)
 
     def get_data_type(self):
-        possible = [d.data_type for d in self.data \
+        possible = [d.data_type for d in self.data
                     if d.data_type is not late_resolution]
         if possible:
             return filter_data_type(possible)

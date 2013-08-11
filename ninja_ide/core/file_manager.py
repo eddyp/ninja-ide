@@ -14,6 +14,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
+from __future__ import unicode_literals
+
+import sys
 import os
 import re
 import threading
@@ -22,6 +25,11 @@ import shutil
 from PyQt4 import QtCore
 
 from ninja_ide.core import settings
+
+if sys.version_info.major == 3:
+    python3 = True
+else:
+    python3 = False
 
 
 #Lock to protect the file's writing operation
@@ -68,13 +76,13 @@ def create_init_file_complete(folderName):
     patClass = re.compile('^class .+')
     patExt = re.compile('.+\\.py')
     files = os.listdir(folderName)
-    files = filter(patExt.match, files)
+    files = list(filter(patExt.match, files))
     files.sort()
     imports_ = []
     for f in files:
         read = open(os.path.join(folderName, f), 'r')
         imp = [re.split('\\s|\\(', line)[1] for line in read.readlines()
-                if patDef.match(line) or patClass.match(line)]
+               if patDef.match(line) or patClass.match(line)]
         imports_ += ['from ' + f[:-3] + ' import ' + i for i in imp]
     name = os.path.join(folderName, '__init__.py')
     fi = open(name, 'w')
@@ -116,8 +124,8 @@ def _search_coding_line(txt):
     """Search a pattern like this: # -*- coding: utf-8 -*-."""
     coding_pattern = "coding[:=]\s*([-\w.]+)"
     pat_coding = re.search(coding_pattern, txt)
-    if pat_coding and unicode(pat_coding.groups()[0]) != 'None':
-        return unicode(pat_coding.groups()[0])
+    if pat_coding and pat_coding.groups()[0] != 'None':
+        return pat_coding.groups()[0]
     return None
 
 
@@ -143,12 +151,12 @@ def get_file_encoding(content):
 def read_file_content(fileName):
     """Read a file content, this function is used to load Editor content."""
     try:
-        with open(fileName, mode='rU') as f:
+        with open(fileName, 'rU') as f:
             content = f.read()
-            encoding = get_file_encoding(content)
-            content.decode(encoding)
-    except IOError, reason:
-        raise NinjaIOException(unicode(reason))
+    except IOError as reason:
+        raise NinjaIOException(reason)
+    except:
+        raise
     return content
 
 
@@ -174,13 +182,19 @@ def store_file_content(fileName, content, addExtension=True, newFile=False):
     if newFile and file_exists(fileName):
         raise NinjaFileExistsException(fileName)
     try:
+        flags = QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Truncate
         f = QtCore.QFile(fileName)
-        if not f.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Truncate):
+        if settings.use_platform_specific_eol():
+            flags |= QtCore.QIODevice.Text
+
+        if not f.open(flags):
             raise NinjaIOException(f.errorString())
+
         stream = QtCore.QTextStream(f)
         encoding = get_file_encoding(content)
         if encoding:
             stream.setCodec(encoding)
+
         encoded_stream = stream.codec().fromUnicode(content)
         f.write(encoded_stream)
         f.flush()
@@ -197,9 +211,9 @@ def open_project(path):
     d = {}
     for root, dirs, files in os.walk(path, followlinks=True):
         d[root] = [[f for f in files
-                if (os.path.splitext(f.lower())[-1]) in \
-                settings.SUPPORTED_EXTENSIONS],
-                dirs]
+                    if (os.path.splitext(f.lower())[-1]) in
+                    settings.SUPPORTED_EXTENSIONS],
+                   dirs]
     return d
 
 
@@ -212,9 +226,9 @@ def open_project_with_extensions(path, extensions):
     d = {}
     for root, dirs, files in os.walk(path, followlinks=True):
         d[root] = [[f for f in files
-                if (os.path.splitext(f.lower())[-1]) in extensions or \
-                '.*' in extensions],
-                dirs]
+                    if (os.path.splitext(f.lower())[-1]) in extensions or
+                    '.*' in extensions],
+                   dirs]
     return d
 
 
@@ -240,9 +254,6 @@ def delete_folder(path, fileName=None):
 def rename_file(old, new):
     """Rename a file, changing its name from 'old' to 'new'."""
     if os.path.isfile(old):
-        ext = (os.path.splitext(new)[-1])[1:]
-        if ext == '':
-            new += '.py'
         if file_exists(new):
             raise NinjaFileExistsException(new)
         os.rename(old, new)
@@ -303,7 +314,7 @@ def check_for_external_modification(fileName, old_mtime):
     #check the file mtime attribute calling os.stat()
     if new_modification_time > old_mtime:
         return True
-    return  False
+    return False
 
 
 def get_files_from_folder(folder, ext):

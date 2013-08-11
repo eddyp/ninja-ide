@@ -21,7 +21,10 @@ from __future__ import absolute_import
 import sys
 import types
 #import inspect
-import StringIO
+try:
+    import StringIO
+except:
+    import io as StringIO  # lint:ok
 from ninja_ide.tools.logger import NinjaLogger
 
 logger = NinjaLogger('ninja_ide.tools.completion.completer')
@@ -47,14 +50,14 @@ def get_completions_per_type(object_dir):
         sig = ""
         try:
             obj = _load_symbol(attr, globals(), locals())
-        except Exception, ex:
+        except Exception as ex:
             logger.error('Could not load symbol: %r', ex)
             return {}
 
         if type(obj) in (types.ClassType, types.TypeType):
             # Look for the highest __init__ in the class chain.
             obj = _find_constructor(obj)
-        elif type(obj) == types.MethodType:
+        elif isinstance(obj, types.MethodType):
             # bit of a hack for methods - turn it into a function
             # but we drop the "self" param.
             obj = obj.im_func
@@ -102,7 +105,7 @@ def _import_modules(imports, dglobals):
     if imports is not None:
         for stmt in imports:
             try:
-                exec stmt in dglobals
+                exec(stmt, dglobals)
             except TypeError:
                 raise TypeError('invalid type: %s' % stmt)
             except Exception:
@@ -112,6 +115,8 @@ def _import_modules(imports, dglobals):
 def get_all_completions(s, imports=None):
     '''Return contextual completion of s (string of >= zero chars)'''
     dlocals = {}
+    #FIXXXXXXXXXXXXXXXX
+    #return {}
 
     _import_modules(imports, globals())
 
@@ -124,7 +129,6 @@ def get_all_completions(s, imports=None):
             continue
         try:
             try:
-                s = unicode(s)
                 if s.startswith('PyQt4.') and s.endswith(')'):
                     s = s[:s.rindex('(')]
                 sym = eval(s, globals(), dlocals)
@@ -146,7 +150,7 @@ def get_all_completions(s, imports=None):
         var = s
         s = dots[-1]
         return get_completions_per_type(["%s.%s" % (var, k) for k in
-            dir(sym) if k.startswith(s)])
+                                         dir(sym) if k.startswith(s)])
     return {}
 
 

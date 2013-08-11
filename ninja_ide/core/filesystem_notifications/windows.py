@@ -17,7 +17,6 @@
 
 from __future__ import absolute_import
 
-from PyQt4.QtCore import SIGNAL
 from threading import Thread
 import win32con
 import win32file
@@ -38,19 +37,19 @@ RENAME = base_watcher.RENAME
 MODIFIED = base_watcher.MODIFIED
 
 ACTIONS = {
-  1: ADDED,
-  2: DELETED,
-  3: MODIFIED,
-  4: RENAME,
-  5: RENAME
+    1: ADDED,
+    2: DELETED,
+    3: MODIFIED,
+    4: RENAME,
+    5: RENAME
 }
 
 # Thanks to Claudio Grondi for the correct set of numbers
 FILE_LIST_DIRECTORY = 0x0001
 
-watchmask = win32con.FILE_NOTIFY_CHANGE_FILE_NAME | \
-            win32con.FILE_NOTIFY_CHANGE_LAST_WRITE | \
-            win32con.FILE_NOTIFY_CHANGE_DIR_NAME
+watchmask = (win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
+             win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
+             win32con.FILE_NOTIFY_CHANGE_DIR_NAME)
 
 
 def listdir(path):
@@ -89,7 +88,7 @@ class FileEventCallback(object):
                 for name in listdir(path):
                     try:
                         current[name] = self.pulentastack(os.path.join(path,
-                                                                        name))
+                                                                       name))
                     except OSError:
                         pass
             except OSError:
@@ -97,7 +96,7 @@ class FileEventCallback(object):
                 pass
 
             observed = set(current)
-            for name, snap_stat in snapshot.items():
+            for name, snap_stat in list(snapshot.items()):
                 filename = os.path.join(path, name)
                 if name in observed:
 
@@ -141,7 +140,7 @@ class FileEventCallback(object):
             for filename in files:
                 try:
                     entry[filename] = self.pulentastack(os.path.join(root,
-                                                                    filename))
+                                                                     filename))
                 except OSError:
                     continue
             for directory in dirs:
@@ -152,7 +151,7 @@ class FileEventCallback(object):
             for name in listdir(os.path.join(root, path)):
                 try:
                     refs[path][name] = self.pulentastack(os.path.join(path,
-                                                                        name))
+                                                                      name))
                 except OSError:
                     pass
 
@@ -173,16 +172,16 @@ class ThreadedFSWatcher(Thread):
         win32event.SetEvent(self._wait_stop)
 
     def run(self):
-        hDir = win32file.CreateFileW(
-                self._watch_path,
-                FILE_LIST_DIRECTORY,
-                win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE,
-                None,
-                win32con.OPEN_EXISTING,
-                win32con.FILE_FLAG_BACKUP_SEMANTICS |
-                win32con.FILE_FLAG_OVERLAPPED,
-                None
-            )
+        hDir = win32file.CreateFileW(self._watch_path,
+                                     FILE_LIST_DIRECTORY,
+                                     win32con.FILE_SHARE_READ |
+                                     win32con.FILE_SHARE_WRITE,
+                                     None,
+                                     win32con.OPEN_EXISTING,
+                                     win32con.FILE_FLAG_BACKUP_SEMANTICS |
+                                     win32con.FILE_FLAG_OVERLAPPED,
+                                     None
+                                     )
         while self._windows_sucks_flag:
             buf = win32file.AllocateReadBuffer(1024)
             win32file.ReadDirectoryChangesW(
@@ -194,11 +193,11 @@ class ThreadedFSWatcher(Thread):
                 win32con.FILE_NOTIFY_CHANGE_SIZE |
                 win32con.FILE_NOTIFY_CHANGE_LAST_WRITE,
                 self._overlapped
-              )
+            )
             result_stack = {}
             rc = win32event.WaitForMultipleObjects((self._wait_stop,
-                                         self._overlapped.hEvent),
-                                         0, win32event.INFINITE)
+                                                    self._overlapped.hEvent),
+                                                   0, win32event.INFINITE)
             if rc == win32event.WAIT_OBJECT_0:
                 # Stop event
                 break
@@ -211,8 +210,8 @@ class ThreadedFSWatcher(Thread):
                 if action in ACTIONS:
                     full_filename = os.path.join(self._watch_path, afile)
                     result_stack.setdefault(full_filename,
-                                         []).append(ACTIONS.get(action))
-            keys = result_stack.keys()
+                                            []).append(ACTIONS.get(action))
+            keys = list(result_stack.keys())
             while len(keys):
                 key = keys.pop(0)
                 event = result_stack.pop(key)
@@ -252,7 +251,3 @@ class NinjaFileSystemWatcher(base_watcher.BaseWatcher):
             each_path = self.watching_paths[each_path]
             each_path.stop()
             each_path.join()
-
-    def _emit_signal_on_change(self, event, path):
-        DEBUG("About to emit the signal")
-        self.emit(SIGNAL("fileChanged(int, QString)"), event, path)

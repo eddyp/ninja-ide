@@ -15,15 +15,22 @@
 # You should have received a copy of the GNU General Public License
 # along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 import re
-import compiler
+try:
+    import compiler
+except ImportError:
+    print('Errors checker not working in Python3')
 
 from PyQt4.QtCore import QThread
 
 from ninja_ide.core import file_manager
 from ninja_ide.core import settings
-from ninja_ide.dependencies.pyflakes_mod import checker
+try:
+    from ninja_ide.dependencies.pyflakes_mod import checker
+except ImportError:
+    print('Errors checker not working in Python3')
 
 
 class ErrorsChecker(QThread):
@@ -32,9 +39,10 @@ class ErrorsChecker(QThread):
     pat_enable_lint = re.compile('(\s)*#lint:enable$')
     pat_ignore_lint = re.compile('(.)+#lint:ok$|(.)+# lint:ok$')
 
-    def __init__(self, editor):
+    def __init__(self, editor, additional_builtins=[]):
         super(ErrorsChecker, self).__init__()
         self._editor = editor
+        self._builtins = additional_builtins
         self._path = ''
         self._encoding = ''
         self.errorsSummary = {}
@@ -59,7 +67,8 @@ class ErrorsChecker(QThread):
                 if self._encoding is not None:
                     source = source.encode(self._encoding)
                 parseResult = compiler.parse(source)
-                lint_checker = checker.Checker(parseResult, self._path)
+                lint_checker = checker.Checker(parseResult, self._path,
+                                               builtins=self._builtins)
                 for m in lint_checker.messages:
                     lineno = m.lineno - 1
                     if lineno not in self.errorsSummary:
@@ -68,20 +77,20 @@ class ErrorsChecker(QThread):
                         message = self.errorsSummary[lineno]
                         message += [m.message % m.message_args]
                     self.errorsSummary[lineno] = message
-            except Exception, reason:
+            except Exception as reason:
                 message = ''
                 if hasattr(reason, 'msg'):
                     message = reason.msg
                 else:
                     message = reason.message
 
-                if hasattr(reason, 'lineno'):
+                if hasattr(reason, 'lineno') and reason.lineno:
                     self.errorsSummary[reason.lineno - 1] = [message]
                 else:
                     self.errorsSummary[0] = [message]
             finally:
                 ignored_range, ignored_lines = self._get_ignore_range()
-                to_remove = [x for x in self.errorsSummary \
+                to_remove = [x for x in self.errorsSummary
                              for r in ignored_range if r[0] < x < r[1]]
                 to_remove += ignored_lines
                 for line in to_remove:
@@ -94,15 +103,15 @@ class ErrorsChecker(QThread):
         ignored_lines = []
         block = self._editor.document().begin()
         while block.isValid():
-            if self.pat_disable_lint.match(unicode(block.text())):
+            if self.pat_disable_lint.match(block.text()):
                 start = block.blockNumber()
                 while block.isValid():
                     block = block.next()
-                    if self.pat_enable_lint.match(unicode(block.text())):
+                    if self.pat_enable_lint.match(block.text()):
                         end = block.blockNumber()
                         ignored_range.append((start, end))
                         break
-            elif self.pat_ignore_lint.match(unicode(block.text())):
+            elif self.pat_ignore_lint.match(block.text()):
                 ignored_lines.append(block.blockNumber())
             block = block.next()
 
