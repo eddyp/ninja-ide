@@ -1,3 +1,10 @@
+ninja-ide (2.3-1) UNRELEASED; urgency=low
+
+  [ Eddy Petrișor ]
+  * New upstream version 2.3
+
+ -- David Paleino <dapal@debian.org>  Sun, 11 Aug 2013 16:34:11 +0300
+
 ninja-ide (2.1.1+ds1-1) unstable; urgency=low
 
   * New upstream version
