@@ -48,13 +48,17 @@ class SidebarWidget(QWidget):
         self.foldArea = 15
         self.rightArrowIcon = QPixmap()
         self.downArrowIcon = QPixmap()
-        self.pat = re.compile('(\s)*def |(\s)*class |(\s)*#begin-fold:')
-        self.patNotPython = re.compile('(\s)*#begin-fold:|(.)*{$')
+        self.pat = re.compile(
+            "(\s)*def |(\s)*class |(\s)*if |(\s)*while |"
+            "(\s)*else:|(\s)*elif |(\s)*for |"
+            "(\s)*try:|(\s)*except:|(\s)*except |(\s)*#begin-fold:")
+        self.patNotPython = re.compile('(\s)*#begin-fold:|(.)*{')
         self._foldedBlocks = []
         self._breakpoints = []
         self._bookmarks = []
         self._pep8Lines = []
         self._errorsLines = []
+        self._migrationLines = []
 
     def update_area(self):
         maxLine = math.ceil(math.log10(self.edit.blockCount()))
@@ -74,6 +78,9 @@ class SidebarWidget(QWidget):
 
     def static_errors_lines(self, lines):
         self._errorsLines = lines
+
+    def migration_lines(self, lines):
+        self._migrationLines = lines
 
     def code_folding_event(self, lineNumber):
         if self._is_folded(lineNumber):
@@ -124,7 +131,7 @@ class SidebarWidget(QWidget):
         return block.isVisible()
 
     def _find_fold_closing(self, block):
-        text = unicode(block.text())
+        text = block.text()
         pat = re.compile('(\s)*#begin-fold:')
         patBrace = re.compile('(.)*{$')
         if pat.match(text):
@@ -136,11 +143,11 @@ class SidebarWidget(QWidget):
         pat = re.compile('^\s*$|^\s*#')
         block = block.next()
         while block.isValid():
-            text2 = unicode(block.text())
+            text2 = block.text()
             if not pat.match(text2):
                 spacesEnd = helpers.get_leading_spaces(text2)
                 if len(spacesEnd) <= len(spaces):
-                    if pat.match(unicode(block.previous().text())):
+                    if pat.match(block.previous().text()):
                         return block.previous().blockNumber()
                     else:
                         return block.blockNumber()
@@ -148,23 +155,26 @@ class SidebarWidget(QWidget):
         return block.previous().blockNumber()
 
     def _find_fold_closing_label(self, block):
-        text = unicode(block.text())
+        text = block.text()
         label = text.split(':')[1]
         block = block.next()
         pat = re.compile('\s*#end-fold:' + label)
         while block.isValid():
-            if pat.match(unicode(block.text())):
+            if pat.match(block.text()):
                 return block.blockNumber() + 1
             block = block.next()
         return block.blockNumber()
 
     def _find_fold_closing_brace(self, block):
         block = block.next()
+        openBrace = 1
         while block.isValid():
-            openBrace = unicode(block.text()).count('{')
-            closeBrace = unicode(block.text()).count('}') - openBrace
-            if closeBrace > 0:
+            openBrace += block.text().count('{')
+            openBrace -= block.text().count('}')
+            if openBrace == 0:
                 return block.blockNumber() + 1
+            elif openBrace < 0:
+                return block.blockNumber()
             block = block.next()
         return block.blockNumber()
 
@@ -184,6 +194,8 @@ class SidebarWidget(QWidget):
             resources.COLOR_SCHEME['pep8-underline'])
         errorcolor = resources.CUSTOM_SCHEME.get('error-underline',
             resources.COLOR_SCHEME['error-underline'])
+        migrationcolor = resources.CUSTOM_SCHEME.get('migration-underline',
+            resources.COLOR_SCHEME['migration-underline'])
         painter.fillRect(self.rect(), QColor(background))
 
         block = self.edit.firstVisibleBlock()
@@ -217,6 +229,14 @@ class SidebarWidget(QWidget):
                 font.setUnderline(True)
                 painter.setFont(font)
                 error = True
+            elif settings.SHOW_MIGRATION_TIPS and \
+                 ((line_count - 1) in self._migrationLines):
+                painter.setPen(QColor(migrationcolor))
+                font = painter.font()
+                font.setItalic(True)
+                font.setUnderline(True)
+                painter.setFont(font)
+                error = True
             else:
                 painter.setPen(QColor(foreground))
 
@@ -231,9 +251,9 @@ class SidebarWidget(QWidget):
             # Draw the line number right justified at the y position of the
             # line. 3 is a magic padding number. drawText(x, y, text).
             if block.isVisible():
-                painter.drawText(self.width() - self.foldArea - \
+                painter.drawText(self.width() - self.foldArea -
                     font_metrics.width(str(line_count)) - 3,
-                    round(position.y()) + font_metrics.ascent() + \
+                    round(position.y()) + font_metrics.ascent() +
                     font_metrics.descent() - 1,
                     str(line_count))
 
@@ -296,7 +316,7 @@ class SidebarWidget(QWidget):
             if position.y() > page_bottom:
                 break
 
-            if pattern.match(unicode(block.text())) and block.isVisible():
+            if pattern.match(block.text()) and block.isVisible():
                 if block.blockNumber() in self._foldedBlocks:
                     painter.drawPixmap(xofs, round(position.y()),
                         self.rightArrowIcon)

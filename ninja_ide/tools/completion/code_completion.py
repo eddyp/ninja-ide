@@ -22,7 +22,10 @@
 import re
 import token as tkn
 from tokenize import generate_tokens, TokenError
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except:
+    from io import StringIO  # lint:ok
 
 from ninja_ide.core import settings
 from ninja_ide.gui.editor import helpers
@@ -52,21 +55,23 @@ class CodeCompletion(object):
         self._valid_op = (')', '}', ']')
         self._invalid_op = ('(', '{', '[')
         self._invalid_words = ('if', 'elif', 'for', 'while', 'in', 'return',
-            'and', 'or', 'del', 'except', 'from', 'import', 'is', 'print',
-            'super', 'yield')
+                               'and', 'or', 'del', 'except', 'from',
+                               'import', 'is', 'print', 'super', 'yield')
         self.keywords = settings.SYNTAX['python']['keywords']
 
     def unload_module(self):
         self.cdaemon.unload_module(self.module_id)
 
-    def analyze_file(self, path, source=None):
+    def analyze_file(self, path, source=None, indent=settings.INDENT,
+                     useTabs=settings.USE_TABS):
         if source is None:
             with open(path) as f:
                 source = f.read()
         split_last_lines = source.rsplit('\n', 2)
         if len(split_last_lines) > 1 and \
            split_last_lines[-2].endswith(':') and split_last_lines[-1] == '':
-            indent = helpers.get_indentation(split_last_lines[-2])
+            indent = helpers.get_indentation(split_last_lines[-2], indent,
+                                             useTabs)
             source += '%spass;' % indent
 
         self.module_id = path
@@ -85,7 +90,7 @@ class CodeCompletion(object):
         token_code = []
         try:
             for tkn_type, tkn_str, pos, _, line, \
-                in generate_tokens(StringIO(code).readline):
+                    in generate_tokens(StringIO(code).readline):
                 token_code.append((tkn_type, tkn_str, pos, line))
         except TokenError:
             #This is an expected situation, where i don't want to do anything
@@ -190,9 +195,13 @@ class CodeCompletion(object):
     def get_completion(self, code, offset):
         token_code = self._tokenize_text(code[:offset])
         scopes = self._search_for_scope(token_code)
+        # Find section to attempt for code completion (var_segment)
         var_segment = self._search_for_completion_segment(token_code)
         words = var_segment.split('.', 1)
         words_final = var_segment.rsplit('.', 1)
+        # Main_attribute is the stem off of which to search for completions
+        # i.e. in exec(ninja_ide.gui. ..., "ninja_ide.gui.main_panel"
+        # would be main_attribute.
         main_attribute = words[0].strip().split('(', 1)
         attr_name = main_attribute[0]
         word = ''
@@ -222,10 +231,14 @@ class CodeCompletion(object):
                 to_complete = var_segment.replace(attr_name, result['type'], 1)
             imports = [imp.split('.')[0] for imp in imports]
             data = completer.get_all_completions(to_complete, imports)
-            __attrib = [d for d in data.get('attributes', []) if d[:2] == '__']
-            if __attrib:
-                map(lambda i: data['attributes'].remove(i), __attrib)
-                data['attributes'] += __attrib
+            # Move system attributes beginning in '__' (built_in_attribs)
+            # to the end of the list.
+            built_in_attribs = [d for d in data.get('attributes', [])
+                                if d[:2] == '__']
+            if built_in_attribs:
+                for i in built_in_attribs:
+                    data['attributes'].remove(i)
+                data['attributes'] += built_in_attribs
             if data:
                 return data
             else:
@@ -233,7 +246,7 @@ class CodeCompletion(object):
 
         if result['type'] is not None and len(result['type']) > 0:
             data = {'attributes': result['type']['attributes'],
-                'functions': result['type']['functions']}
+                    'functions': result['type']['functions']}
         else:
             clazzes = sorted(set(self.patClass.findall(code)))
             funcs = sorted(set(self.patFunction.findall(code)))
@@ -244,9 +257,9 @@ class CodeCompletion(object):
                 attrs.remove(attr_name)
             filter_attrs = lambda x: (x not in funcs) and \
                 not x.isdigit() and (x not in self.keywords)
-            attrs = filter(filter_attrs, attrs)
-            funcs = filter(lambda x: x not in clazzes, funcs)
+            attrs = list(filter(filter_attrs, attrs))
+            funcs = [x for x in funcs if x not in clazzes]
             data = {'attributes': attrs,
-                'functions': funcs,
-                'classes': clazzes}
+                    'functions': funcs,
+                    'classes': clazzes}
         return data

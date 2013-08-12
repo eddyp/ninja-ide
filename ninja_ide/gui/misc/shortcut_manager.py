@@ -32,7 +32,6 @@ from PyQt4.QtGui import QMessageBox
 from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QEvent
-from PyQt4.QtCore import QString
 from PyQt4.QtCore import QSettings
 
 from ninja_ide import resources
@@ -117,7 +116,7 @@ class ShortcutDialog(QDialog):
         if evt.modifiers() & Qt.MetaModifier:
             self.keys += Qt.META
         #set the keys
-        self.set_shortcut(QString(QKeySequence(self.keys)))
+        self.set_shortcut(QKeySequence(self.keys).toString())
 
 
 class ShortcutConfiguration(QWidget):
@@ -163,8 +162,8 @@ class ShortcutConfiguration(QWidget):
             "Find-next": self.tr("Find Next"),
             "Find-previous": self.tr("Find Previous"),
             "Help": self.tr("Show Python Help"),
-            "Split-horizontal": self.tr("Split Tabs Horizontally"),
             "Split-vertical": self.tr("Split Tabs Vertically"),
+            "Split-horizontal": self.tr("Split Tabs Horizontally"),
             "Follow-mode": self.tr("Activate/Deactivate Follow Mode"),
             "Reload-file": self.tr("Reload File"),
             "Jump": self.tr("Jump to line"),
@@ -179,6 +178,8 @@ class ShortcutConfiguration(QWidget):
             "Open-recent-closed": self.tr("Open recent closed file"),
             "Change-Tab": self.tr("Change to the next Tab"),
             "Change-Tab-Reverse": self.tr("Change to the previous Tab"),
+            "Move-Tab-to-right": self.tr("Move tab to right"),
+            "Move-Tab-to-left": self.tr("Move tab to left"),
             "Show-Code-Nav": self.tr("Activate History Navigation"),
             "Show-Bookmarks-Nav": self.tr("Activate Bookmarks Navigation"),
             "Show-Breakpoints-Nav": self.tr("Activate Breakpoints Navigation"),
@@ -189,8 +190,13 @@ class ShortcutConfiguration(QWidget):
                 "Change the keyboard focus between the current splits"),
             "Add-Bookmark-or-Breakpoint": self.tr(
                 "Insert Bookmark/Breakpoint"),
+            "move-tab-to-next-split": self.tr(
+                "Move the current Tab to the next split."),
+            "change-tab-visibility": self.tr(
+                "Show/Hide the Tabs in the Editor Area."),
             "Highlight-Word": self.tr(
-                "Highlight occurrences for word under cursor")}
+                "Highlight occurrences for word under cursor")
+        }
 
         self.shortcut_dialog = ShortcutDialog(self)
         #main layout
@@ -227,7 +233,7 @@ class ShortcutConfiguration(QWidget):
         Validate and set a new shortcut
         """
         if self.__validate_shortcut(keysequence):
-            self.result_widget.currentItem().setText(1, QString(keysequence))
+            self.result_widget.currentItem().setText(1, keysequence.toString())
 
     def __validate_shortcut(self, keysequence):
         """
@@ -236,14 +242,14 @@ class ShortcutConfiguration(QWidget):
         if keysequence.isEmpty():
             return True
 
-        keyname = unicode(self.result_widget.currentItem().text(0))
-        keystr = unicode(QString(keysequence))
+        keyname = self.result_widget.currentItem().text(0)
+        keystr = keysequence
 
-        for top_index in xrange(self.result_widget.topLevelItemCount()):
+        for top_index in range(self.result_widget.topLevelItemCount()):
             top_item = self.result_widget.topLevelItem(top_index)
 
-            if unicode(top_item.text(0)) != keyname:
-                itmseq = unicode(top_item.text(1))
+            if top_item.text(0) != keyname:
+                itmseq = top_item.text(1)
                 if keystr == itmseq:
                     val = QMessageBox.warning(self,
                             self.tr('Shortcut is already in use'),
@@ -266,16 +272,17 @@ class ShortcutConfiguration(QWidget):
         if item.childCount():
             return
 
-        self.shortcut_dialog.set_shortcut(QString(QKeySequence(item.text(1))))
+        self.shortcut_dialog.set_shortcut(
+            QKeySequence(item.text(1)).toString())
         self.shortcut_dialog.exec_()
 
     def save(self):
         """
         Save all shortcuts to settings
         """
-        settings = QSettings()
+        settings = QSettings(resources.SETTINGS_PATH, QSettings.IniFormat)
         settings.beginGroup("shortcuts")
-        for index in xrange(self.result_widget.topLevelItemCount()):
+        for index in range(self.result_widget.topLevelItemCount()):
             item = self.result_widget.topLevelItem(index)
             shortcut_keys = item.text(1)
             shortcut_name = item.text(2)
@@ -293,11 +300,13 @@ class ShortcutConfiguration(QWidget):
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
     def _load_defaults_shortcuts(self):
+        #clean custom shortcuts and UI widget
+        resources.clean_custom_shortcuts()
         self.result_widget.clear()
-        for name, action in resources.SHORTCUTS.iteritems():
+        for name, action in list(resources.SHORTCUTS.items()):
             shortcut_action = action
             #populate the tree widget
             tree_data = [self.shortcuts_text[name],
-                shortcut_action.toString(QKeySequence.NativeText)]
+                shortcut_action.toString(QKeySequence.NativeText), name]
             item = QTreeWidgetItem(self.result_widget, tree_data)
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)

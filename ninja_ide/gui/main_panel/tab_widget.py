@@ -63,6 +63,7 @@ class TabWidget(QTabWidget):
     syntaxChanged(QWidget, QString)
     reloadFile(QWidget)
     navigateCode(bool, int)
+    recentTabsModified(QStringList)
     """
 ###############################################################################
 
@@ -79,7 +80,7 @@ class TabWidget(QTabWidget):
         self._parent = parent
         self.follow_mode = False
         self._change_map = {}
-        #On some plataforms there are problem with focusInEvent
+        #On some platforms there are problem with focusInEvent
         self.question_already_open = False
         #Keep track of the tab titles
         self.titles = []
@@ -92,14 +93,20 @@ class TabWidget(QTabWidget):
         self.connect(self.navigator.btnNext, SIGNAL("clicked()"),
             lambda: self._navigate_code(True))
 
+    def get_recent_files_list(self):
+        return self.__lastOpened
+
     def _navigate_code(self, val):
         op = self.navigator.operation
         self.emit(SIGNAL("navigateCode(bool, int)"), val, op)
 
     def _add_to_last_opened(self, path):
-        self.__lastOpened.append(path)
-        if len(self.__lastOpened) > settings.MAX_REMEMBER_TABS:
-            self.__lastOpened = self.__lastOpened[1:]
+        if path not in self.__lastOpened:
+            self.__lastOpened.append(path)
+            if len(self.__lastOpened) > settings.MAX_REMEMBER_TABS:
+                self.__lastOpened = self.__lastOpened[1:]
+            self.emit(SIGNAL("recentTabsModified(QStringList)"),
+                self.__lastOpened)
 
     def add_tab(self, widget, title, index=None):
         try:
@@ -111,29 +118,35 @@ class TabWidget(QTabWidget):
             self.expand_tab_name(title)
             widget.setFocus()
             return inserted_index
-        except AttributeError, reason:
+        except AttributeError as reason:
             msg = "Widget couldn't be added, doesn't inherit from ITabWidget"
             logger.error('add_tab: %s', reason)
             logger.error(msg)
 
     def expand_tab_name(self, title):
-        title = unicode(title)
+        """Expand the tab title to differentiate files with the same name.
+
+        The way it is currently implemented, it will only change the first
+        conflicting title passed in, because it only searches until the new
+        title isn't in the tab titles.
+        """
         if title == 'New Document':
             return
         elif title not in self.titles:
             self.titles.append(title)
             return
-        indexes = [i for i in xrange(self.count())
+        indexes = [i for i in range(self.count())
             if type(self.widget(i)) is editor.Editor and
             self.tabText(i) == title and
-            self.widget(i).ID]
+            self.widget(i).ID]  # self.widget.ID returns the basename
         self.dontLoopInExpandTitle = True
         for i in indexes:
             newName = file_manager.create_path(
                 file_manager.get_basename(
-                    file_manager.get_folder(self.widget(i).ID)),
-                title)
+                    file_manager.get_folder(self.widget(i).ID)), title)
             while newName in self.titles:
+                # Keep prepending the folder name onto the title until it
+                # does not conflict.
                 path = self.widget(i).ID
                 tempDir = path[:path.rfind(newName)]
                 newName = file_manager.create_path(
@@ -147,7 +160,7 @@ class TabWidget(QTabWidget):
 
     def tab_was_modified(self, val):
         ed = self.currentWidget()
-        text = unicode(self.tabBar().tabText(self.currentIndex()))
+        text = self.tabBar().tabText(self.currentIndex())
         if type(ed) is editor.Editor and self.notOpening and val and \
            not text.startswith('(*) '):
             ed.textModified = True
@@ -176,8 +189,8 @@ class TabWidget(QTabWidget):
             if editorWidget.just_saved:
                 editorWidget.just_saved = False
                 return
-            val = QMessageBox.question(self, 'The file has changed on disc!',
-                self.tr("%1\nDo you want to reload it?").arg(editorWidget.ID),
+            val = QMessageBox.question(self, 'The file has changed on disk!',
+                (self.tr("%s\nDo you want to reload it?") % editorWidget.ID),
                 QMessageBox.Yes, QMessageBox.No)
             if val == QMessageBox.Yes:
                 self.emit(SIGNAL("reloadFile(QWidget)"), editorWidget)
@@ -186,24 +199,23 @@ class TabWidget(QTabWidget):
                 editorWidget.ask_if_externally_modified = False
         elif change == DELETED:
                 val = QMessageBox.information(self,
-                            'The file has deleted from disc!',
-                self.tr("%1\n").arg(editorWidget.ID),
+                            'The file has been deleted from disk!',
+                (self.tr("%s\n") % editorWidget.ID),
                 QMessageBox.Yes)
         self.question_already_open = False
 
     def _file_changed(self, change_type, file_path):
-
-        file_path = unicode(QDir.toNativeSeparators(file_path))
+        file_path = QDir.toNativeSeparators(file_path)
         editorWidget = self.currentWidget()
-        current_open = unicode(QDir.toNativeSeparators(editorWidget and
-                                                        editorWidget.ID or ""))
+        current_open = QDir.toNativeSeparators(editorWidget and
+                                                    editorWidget.ID or "")
         opened = [path for path, _ in self.get_documents_data()]
 
         if (file_path in opened) and \
             ((not editorWidget) or (current_open != file_path)) and \
             (change_type in (MODIFIED, DELETED)):
 
-            self._change_map.setdefault(unicode(file_path),
+            self._change_map.setdefault(file_path,
                                         []).append(change_type)
         elif not editorWidget:
             return
@@ -223,30 +235,35 @@ class TabWidget(QTabWidget):
 
     def tab_was_saved(self, ed):
         index = self.indexOf(ed)
-        text = unicode(self.tabBar().tabText(self.currentIndex()))
+        text = self.tabBar().tabText(index)
         if text.startswith('(*) '):
             text = text[4:]
         self.tabBar().setTabText(index, text)
 
     def is_open(self, identifier):
         """Check if a Tab with id = identifier is open"""
-        for i in xrange(self.count()):
+        for i in range(self.count()):
             if self.widget(i) == identifier:
                 return i
         return -1
 
     def move_to_open(self, identifier):
         """Set the selected Tab for the widget with id = identifier"""
-        for i in xrange(self.count()):
+        for i in range(self.count()):
             if self.widget(i) == identifier:
                 self.setCurrentIndex(i)
                 return
 
+    def search_for_identifier_index(self, identifier):
+        for i in range(self.count()):
+            if self.widget(i) == identifier:
+                return i
+
     def remove_title(self, index):
         """Looks for the title of the tab at index and removes it from
         self.titles, if it's there.'"""
-        if unicode(self.tabText(index)) in self.titles:
-            self.titles.remove(unicode(self.tabText(index)))
+        if self.tabText(index) in self.titles:
+            self.titles.remove(self.tabText(index))
 
     def update_current_widget(self):
         """Sets the focus to the current widget. If this is the last tab in the
@@ -267,10 +284,10 @@ class TabWidget(QTabWidget):
                 if widget.textModified and not self.follow_mode:
                     fileName = self.tabBar().tabText(self.currentIndex())
                     val = QMessageBox.question(
-                        self, self.tr('The file %1 was not saved').arg(
+                        self, (self.tr('The file %s was not saved') %
                             fileName),
                             self.tr("Do you want to save before closing?"),
-                            QMessageBox.Yes | QMessageBox.No | \
+                            QMessageBox.Yes | QMessageBox.No |
                             QMessageBox.Cancel)
                 if val == QMessageBox.Cancel:
                     return
@@ -309,17 +326,6 @@ class TabWidget(QTabWidget):
                 self.widget(i)._sidebarWidget._save_breakpoints_bookmarks()
         return files
 
-#    def mouseMoveEvent(self, event):
-#        if event.buttons() != Qt.RightButton:
-#            return
-#        mimeData = QMimeData()
-#        drag = QDrag(self)
-#        drag.setMimeData(mimeData)
-#        drag.setHotSpot(event.pos() - self.rect().topLeft())
-#        dropAction = drag.start(Qt.MoveAction)
-#        if dropAction == Qt.MoveAction:
-#            self.close()
-
     def mousePressEvent(self, event):
         QTabWidget.mousePressEvent(self, event)
         if self.follow_mode:
@@ -354,9 +360,9 @@ class TabWidget(QTabWidget):
                             self._parent.orientation() == Qt.Horizontal))
                 else:
                     actionSplitH = menu.addAction(
-                        self.tr("Split this Tab (Horizontally)"))
-                    actionSplitV = menu.addAction(
                         self.tr("Split this Tab (Vertically)"))
+                    actionSplitV = menu.addAction(
+                        self.tr("Split this Tab (Horizontally)"))
                     #Connect split actions
                     self.connect(actionSplitH, SIGNAL("triggered()"),
                         lambda: self._split_this_tab(True))
@@ -390,7 +396,7 @@ class TabWidget(QTabWidget):
             self.removeTab(index)
 
     def _create_menu_syntax(self, menuSyntax):
-        syntax = settings.SYNTAX.keys()
+        syntax = list(settings.SYNTAX.keys())
         syntax.sort()
         for syn in syntax:
             menuSyntax.addAction(syn)
@@ -414,7 +420,8 @@ class TabWidget(QTabWidget):
 
     def _reopen_last_tab(self):
         self.emit(SIGNAL("reopenTab(QTabWidget, QString)"),
-        self, self.__lastOpened.pop())
+            self, self.__lastOpened.pop())
+        self.emit(SIGNAL("recentTabsModified(QStringList)"), self.__lastOpened)
 
     def _split_this_tab(self, orientation):
         self.emit(SIGNAL("splitTab(QTabWidget, int, bool)"),
@@ -425,21 +432,14 @@ class TabWidget(QTabWidget):
         QApplication.clipboard().setText(widget.ID, QClipboard.Clipboard)
 
     def _close_all_tabs(self):
-        for i in xrange(self.count()):
+        for i in range(self.count()):
             self.removeTab(0)
 
     def _close_all_tabs_except_this(self):
         self.tabBar().moveTab(self.currentIndex(), 0)
-        for i in xrange(self.count()):
+        for i in range(self.count()):
             if self.count() > 1:
                 self.removeTab(1)
-
-#    def dragEnterEvent(self, event):
-#        event.accept()
-#
-#    def dropEvent(self, event):
-#        event.accept()
-#        self.emit(SIGNAL("dropTab(QTabWidget)"), self)
 
     def _check_unsaved_tabs(self):
         """
@@ -460,7 +460,7 @@ class TabWidget(QTabWidget):
         for i in range(self.count()):
             widget = self.widget(i)
             if type(widget) is editor.Editor and widget.textModified:
-                files.append(unicode(self.tabText(i)))
+                files.append(self.tabText(i))
         return files
 
     def change_tab(self):

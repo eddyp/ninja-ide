@@ -50,8 +50,8 @@ class TrayIconUpdates(QSystemTrayIcon):
             self.thread = ThreadUpdates()
 
             self.connect(self.thread,
-                SIGNAL("versionReceived(QString, QString)"),
-                self._show_messages)
+                         SIGNAL("versionReceived(QString, QString)"),
+                         self._show_messages)
             self.thread.start()
         else:
             self.show = self.hide
@@ -59,13 +59,13 @@ class TrayIconUpdates(QSystemTrayIcon):
     def setup_menu(self, show_downloads=False):
         self.menu = QMenu()
         if show_downloads:
-            self.download = QAction(self.tr("Download Version: %1!").arg(
-                self.ide_version),
-                self, triggered=self._show_download)
+            self.download = QAction((self.tr("Download Version: %s!") %
+                                     self.ide_version),
+                                    self, triggered=self._show_download)
             self.menu.addAction(self.download)
             self.menu.addSeparator()
         self.quit_action = QAction(self.tr("Close Update Notifications"),
-            self, triggered=self.hide)
+                                   self, triggered=self.hide)
         self.menu.addAction(self.quit_action)
 
         self.setContextMenu(self.menu)
@@ -80,24 +80,25 @@ class TrayIconUpdates(QSystemTrayIcon):
                 if self.supportsMessages():
                     self.setup_menu(True)
                     self.showMessage(self.tr("NINJA-IDE Updates"),
-                        self.tr("New Version of NINJA-IDE\nAvailable: ") +
-                        self.ide_version + \
-                        self.tr("\n\nCheck the Update Menu in the NINJA-IDE "
-                                "System Tray icon to Download!"),
-                        QSystemTrayIcon.Information, 10000)
+                                     self.tr("New Version of NINJA-IDE\nAvailable: ") +
+                                     self.ide_version +
+                                     self.tr("\n\nCheck the Update Menu in the NINJA-IDE "
+                                             "System Tray icon to Download!"),
+                                     QSystemTrayIcon.Information, 10000)
                 else:
                     button = QMessageBox.information(self.parent(),
-                        self.tr("NINJA-IDE Updates"),
-                        self.tr("New Version of NINJA-IDE\nAvailable: ") + \
-                        self.ide_version)
+                                                     self.tr("NINJA-IDE Updates"),
+                                                     self.tr("New Version of NINJA-IDE\nAvailable: ") +
+                                                     self.ide_version)
                     if button == QMessageBox.Ok:
                         self._show_download()
             else:
                 self.hide()
-        except Exception, reason:
-            print reason
+        except Exception as reason:
             logger.warning('Versions can not be compared: %r', reason)
             self.hide()
+        finally:
+            self.thread.wait()
 
     def _show_download(self):
         webbrowser.open(self.download_link)
@@ -118,4 +119,4 @@ class ThreadUpdates(QThread):
             ide = {}
             logger.info('no connection available')
         self.emit(SIGNAL("versionReceived(QString, QString)"),
-            ide.get('version', '0'), ide.get('downloads', ''))
+                  ide.get('version', '0'), ide.get('downloads', ''))

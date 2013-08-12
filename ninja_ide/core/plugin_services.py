@@ -16,6 +16,7 @@
 # along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from PyQt4.QtCore import QObject
 from PyQt4.QtCore import SIGNAL
@@ -54,17 +55,17 @@ class MainService(QObject):
         self._explorer = explorer_container.ExplorerContainer()
         #Connect signals
         self.connect(self._main, SIGNAL("editorKeyPressEvent(QEvent)"),
-            self._keyPressEvent)
+                     self._keyPressEvent)
         self.connect(self._main, SIGNAL("beforeFileSaved(QString)"),
-            self._beforeFileSaved)
+                     self._beforeFileSaved)
         self.connect(self._main, SIGNAL("fileSaved(QString)"),
-            self._fileSaved)
+                     self._fileSaved)
         self.connect(self._main, SIGNAL("currentTabChanged(QString)"),
-            self._currentTabChanged)
+                     self._currentTabChanged)
         self.connect(self._action, SIGNAL("fileExecuted(QString)"),
-            self._fileExecuted)
+                     self._fileExecuted)
         self.connect(self._main, SIGNAL("fileOpened(QString)"),
-            self._fileOpened)
+                     self._fileOpened)
 
 ###############################################################################
 # Get main GUI Objects
@@ -94,7 +95,7 @@ class MainService(QObject):
         documents_data = self._main.get_opened_documents()
         #returns ONLY names!
         return [doc_data[0] for doc_list in documents_data
-                    for doc_data in doc_list]
+                for doc_data in doc_list]
 
     def get_project_owner(self, editorWidget=None):
         """
@@ -220,12 +221,12 @@ class MainService(QObject):
         self._main.open_files(self, files, mainTab=mainTab)
 
     def open_file(self, fileName='', cursorPosition=0,
-                    positionIsLineNumber=False):
+                  positionIsLineNumber=False):
         """
         Open a single file, if the file is already open it get focus
         """
         self._main.open_file(filename=fileName, cursorPosition=cursorPosition,
-                                positionIsLineNumber=positionIsLineNumber)
+                             positionIsLineNumber=positionIsLineNumber)
 
     def open_image(self, filename):
         """
@@ -257,7 +258,7 @@ class MainService(QObject):
         """
         Signal emitted after save a file
         """
-        fileName = unicode(fileName.split(":")[-1]).strip()
+        fileName = fileName.split(":")[-1].strip()
         self.fileSaved.emit(fileName)
 
     def _currentTabChanged(self, fileName):
@@ -380,9 +381,9 @@ class ExplorerService(QObject):
         self._explorer = explorer_container.ExplorerContainer()
         self._action = actions.Actions()
         self.connect(self._explorer, SIGNAL("projectOpened(QString)"),
-            self._projectOpened)
+                     self._projectOpened)
         self.connect(self._action, SIGNAL("projectExecuted(QString)"),
-            self._projectExecuted)
+                     self._projectExecuted)
 
     def get_tree_projects(self):
         """
@@ -484,7 +485,7 @@ class ExplorerService(QObject):
         if scope is None:
             #default behavior show ALL
             scope = plugin_util.ContextMenuScope(project=True, folder=True,
-                files=True)
+                                                 files=True)
         if self._explorer._treeProjects:
             self._explorer._treeProjects.add_extra_menu_by_scope(menu, scope)
 

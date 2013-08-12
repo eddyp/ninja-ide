@@ -26,13 +26,10 @@ from PyQt4.QtGui import QLabel
 from PyQt4.QtGui import QPixmap
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QSize
-from PyQt4.QtCore import QEvent
 from PyQt4.QtCore import SIGNAL
 
 import ninja_ide
 from ninja_ide import resources
-from ninja_ide.gui.main_panel import main_container
-from ninja_ide.gui.menus.lib.tetrisgame import TetrisMainWindow
 
 
 class AboutNinja(QDialog):
@@ -61,37 +58,27 @@ class AboutNinja(QDialog):
         #Add description
         vbox.addWidget(QLabel(
 self.tr("""NINJA-IDE (from: "Ninja Is Not Just Another IDE"), is a
-cross-platform integrated development environment specially design
+cross-platform integrated development environment specially designed
 to build Python Applications.
 NINJA-IDE provides tools to simplify the Python-software development
 and handles all kinds of situations thanks to its rich extensibility.""")))
-        vbox.addWidget(QLabel(self.tr("Version: %1").arg(
-                ninja_ide.__version__)))
+        vbox.addWidget(QLabel(self.tr("Version: %s") % ninja_ide.__version__))
         link_ninja = QLabel(
-            self.tr("Website: <a href='%1'>%1</a>").arg(ninja_ide.__url__))
+            self.tr('Website: <a href="%s"><span style=" '
+                'text-decoration: underline; color:#ff9e21;">'
+                '%s</span></a>') %
+                (ninja_ide.__url__, ninja_ide.__url__))
         vbox.addWidget(link_ninja)
         link_source = QLabel(
-            self.tr("Source Code: <a href='%1'>%1</a>").arg(
-                ninja_ide.__source__))
+            self.tr('Source Code: <a href="%s"><span style=" '
+            'text-decoration: underline; color:#ff9e21;">%s</span></a>') %
+                (ninja_ide.__source__, ninja_ide.__source__))
         vbox.addWidget(link_source)
 
         self.connect(link_ninja, SIGNAL("linkActivated(QString)"),
             self.link_activated)
         self.connect(link_source, SIGNAL("linkActivated(QString)"),
             self.link_activated)
-        self.lblIcon.installEventFilter(self)
 
     def link_activated(self, link):
         webbrowser.open(str(link))
-
-    def eventFilter(self, obj, event):
-        if obj == self.lblIcon and event.type() == QEvent.MouseButtonPress:
-            self.show_retsae()
-        return False
-
-    def show_retsae(self):
-        height = main_container.MainContainer().size().height()
-        width = main_container.MainContainer().size().width()
-        tetris = TetrisMainWindow(width, height)
-        main_container.MainContainer().add_tab(tetris, 'Tetris')
-        self.close()

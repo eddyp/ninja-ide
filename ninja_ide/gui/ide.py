@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with NINJA-IDE; If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 import sys
 
@@ -28,14 +29,15 @@ from PyQt4.QtGui import QToolBar
 from PyQt4.QtGui import QToolTip
 from PyQt4.QtGui import QFont
 from PyQt4.QtCore import Qt
+from PyQt4.QtCore import QLibraryInfo
 from PyQt4.QtCore import QLocale
 from PyQt4.QtCore import QSettings
 from PyQt4.QtCore import QCoreApplication
 from PyQt4.QtCore import QTranslator
 from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import QTextCodec
-from PyQt4.QtCore import QSize
-from PyQt4.QtCore import QPoint
+from PyQt4.QtCore import QSizeF
+from PyQt4.QtCore import QPointF
 from PyQt4.QtNetwork import QLocalServer
 
 from ninja_ide import resources
@@ -48,6 +50,7 @@ from ninja_ide.gui import updates
 from ninja_ide.gui import actions
 from ninja_ide.gui.dialogs import preferences
 from ninja_ide.gui.dialogs import traceback_widget
+from ninja_ide.gui.dialogs import python_detect_dialog
 from ninja_ide.tools import json_manager
 from ninja_ide.tools.completion import completion_daemon
 #NINJA-IDE Containers
@@ -78,8 +81,6 @@ logger = NinjaLogger('ninja_ide.gui.ide')
 # IDE: MAIN CONTAINER
 ###############################################################################
 __ideInstance = None
-#Save cursor flash time to restore it on close (necessary for Windows)
-cursor_flash_time = 0
 
 
 def IDE(*args, **kw):
@@ -102,6 +103,7 @@ class __IDE(QMainWindow):
         self.setMinimumSize(700, 500)
         #Load the size and the position of the main window
         self.load_window_geometry()
+        self.__project_to_open = 0
 
         #Start server if needed
         self.s_listener = None
@@ -179,18 +181,29 @@ class __IDE(QMainWindow):
         self.trayIcon = updates.TrayIconUpdates(self)
         self.trayIcon.show()
 
+        self.connect(self._menuFile, SIGNAL("openFile(QString)"),
+            self.mainContainer.open_file)
         self.connect(self.mainContainer, SIGNAL("fileSaved(QString)"),
             self.show_status_message)
+        self.connect(self.mainContainer,
+            SIGNAL("recentTabsModified(QStringList)"),
+            self._menuFile.update_recent_files)
+        self.connect(self.mainContainer, SIGNAL("currentTabChanged(QString)"),
+            self.actions.update_migration_tips)
+        self.connect(self.mainContainer, SIGNAL("updateFileMetadata(QString)"),
+            self.actions.update_migration_tips)
+        self.connect(self.mainContainer, SIGNAL("migrationAnalyzed()"),
+            self.actions.update_migration_tips)
 
     def _process_connection(self):
         connection = self.s_listener.nextPendingConnection()
         connection.waitForReadyRead()
-        data = unicode(connection.readAll())
+        data = connection.readAll()
         connection.close()
         if data:
-            files, projects = data.split(ipc.project_delimiter, 1)
-            files = map(lambda x: (x.split(':')[0], int(x.split(':')[1])),
-                files.split(ipc.file_delimiter))
+            files, projects = str(data).split(ipc.project_delimiter, 1)
+            files = [(x.split(':')[0], int(x.split(':')[1]))
+                for x in files.split(ipc.file_delimiter)]
             projects = projects.split(ipc.project_delimiter)
             self.load_session_files_projects(files, [], projects, None)
 
@@ -251,6 +264,9 @@ class __IDE(QMainWindow):
             self._dont_show_start_page_again)
         self.connect(self.mainContainer, SIGNAL("currentTabChanged(QString)"),
             self.status.handle_tab_changed)
+        # When close the last tab cleanup
+        self.connect(self.mainContainer, SIGNAL("allTabsClosed()"),
+            self._last_tab_closed)
         # Update symbols
         self.connect(self.mainContainer, SIGNAL("updateLocator(QString)"),
             self.status.explore_file_code)
@@ -272,14 +288,26 @@ class __IDE(QMainWindow):
         centralWidget.insert_central_container(self.mainContainer)
         centralWidget.insert_lateral_container(self.explorer)
         centralWidget.insert_bottom_container(self.misc)
+        if self.explorer.count() == 0:
+            centralWidget.change_explorer_visibility(force_hide=True)
         self.connect(self.mainContainer,
             SIGNAL("cursorPositionChange(int, int)"),
             self.central.lateralPanel.update_line_col)
+        # TODO: Change current symbol on move
+        #self.connect(self.mainContainer,
+            #SIGNAL("cursorPositionChange(int, int)"),
+            #self.explorer.update_current_symbol)
         self.connect(self.mainContainer, SIGNAL("enabledFollowMode(bool)"),
             self.central.enable_follow_mode_scrollbar)
 
         if settings.SHOW_START_PAGE:
             self.mainContainer.show_start_page()
+
+    def _last_tab_closed(self):
+        """
+        Called when the last tasb is closed
+        """
+        self.explorer.cleanup_tabs()
 
     def _show_preferences(self):
         pref = preferences.PreferencesWidget(self.mainContainer)
@@ -287,7 +315,7 @@ class __IDE(QMainWindow):
 
     def _dont_show_start_page_again(self):
         settings.SHOW_START_PAGE = False
-        qsettings = QSettings()
+        qsettings = QSettings(resources.SETTINGS_PATH, QSettings.IniFormat)
         qsettings.beginGroup('preferences')
         qsettings.beginGroup('general')
         qsettings.setValue('showStartPage', settings.SHOW_START_PAGE)
@@ -296,17 +324,29 @@ class __IDE(QMainWindow):
         self.mainContainer.actualTab.close_tab()
 
     def load_session_files_projects(self, filesTab1, filesTab2, projects,
-        current_file):
+        current_file, recent_files=None):
+        self.__project_to_open = len(projects)
+        self.connect(self.explorer, SIGNAL("projectOpened(QString)"),
+            self._set_editors_project_data)
+        self.explorer.open_session_projects(projects, notIDEStart=False)
         self.mainContainer.open_files(filesTab1, notIDEStart=False)
         self.mainContainer.open_files(filesTab2, mainTab=False,
             notIDEStart=False)
-        self.explorer.open_session_projects(projects, notIDEStart=False)
         if current_file:
             self.mainContainer.open_file(current_file, notStart=False)
+        if recent_files is not None:
+            self._menuFile.update_recent_files(recent_files)
+
+    def _set_editors_project_data(self):
+        self.__project_to_open -= 1
+        if self.__project_to_open == 0:
+            self.disconnect(self.explorer, SIGNAL("projectOpened(QString)"),
+                self._set_editors_project_data)
+            self.mainContainer.update_editor_project()
 
     def open_file(self, filename):
         if filename:
-            self.mainContainer.open_file(unicode(filename))
+            self.mainContainer.open_file(filename)
 
     def open_project(self, project):
         if project:
@@ -331,6 +371,11 @@ class __IDE(QMainWindow):
         else:
             self.setWindowTitle('NINJA-IDE (PROFILE: %s) - %s' % (
                 self.profile, title))
+        currentEditor = self.mainContainer.get_actual_editor()
+        if currentEditor is not None:
+            line = currentEditor.textCursor().blockNumber() + 1
+            col = currentEditor.textCursor().columnNumber()
+            self.central.lateralPanel.update_line_col(line, col)
 
     def wheelEvent(self, event):
         if event.modifiers() == Qt.ShiftModifier:
@@ -348,13 +393,13 @@ class __IDE(QMainWindow):
 
         Info saved: Tabs and projects opened, windows state(size and position).
         """
-        qsettings = QSettings()
+        qsettings = QSettings(resources.SETTINGS_PATH, QSettings.IniFormat)
         editor_widget = self.mainContainer.get_actual_editor()
         current_file = ''
         if editor_widget is not None:
             current_file = editor_widget.ID
-        openedFiles = self.mainContainer.get_opened_documents()
-        if qsettings.value('preferences/general/loadFiles', True).toBool():
+        if qsettings.value('preferences/general/loadFiles', True, type=bool):
+            openedFiles = self.mainContainer.get_opened_documents()
             projects_obj = self.explorer.get_opened_projects()
             projects = [p.path for p in projects_obj]
             qsettings.setValue('openFiles/projects',
@@ -364,6 +409,8 @@ class __IDE(QMainWindow):
             if len(openedFiles) == 2:
                 qsettings.setValue('openFiles/secondaryTab', openedFiles[1])
             qsettings.setValue('openFiles/currentFile', current_file)
+            qsettings.setValue('openFiles/recentFiles',
+                self.mainContainer._tabMain.get_recent_files_list())
         qsettings.setValue('preferences/editor/bookmarks', settings.BOOKMARKS)
         qsettings.setValue('preferences/editor/breakpoints',
             settings.BREAKPOINTS)
@@ -383,8 +430,12 @@ class __IDE(QMainWindow):
         qsettings.setValue("window/central/mainSize",
             self.central.get_main_sizes())
         #Save the toolbar visibility
-        qsettings.setValue("window/hide_toolbar",
-            not self.toolbar.isVisible() and self.menuBar().isVisible())
+        if not self.toolbar.isVisible() and self.menuBar().isVisible():
+            qsettings.setValue("window/hide_toolbar", True)
+        else:
+            qsettings.setValue("window/hide_toolbar", False)
+        #Save Misc state
+        qsettings.setValue("window/show_misc", self.misc.isVisible())
         #Save Profiles
         if self.profile is not None:
             self.actions.save_profile(self.profile)
@@ -393,29 +444,31 @@ class __IDE(QMainWindow):
 
     def load_window_geometry(self):
         """Load from QSettings the window size of de Ninja IDE"""
-        qsettings = QSettings()
-        if qsettings.value("window/maximized", True).toBool():
+        qsettings = QSettings(resources.SETTINGS_PATH, QSettings.IniFormat)
+        if qsettings.value("window/maximized", True, type=bool):
             self.setWindowState(Qt.WindowMaximized)
         else:
             self.resize(qsettings.value("window/size",
-                QSize(800, 600)).toSize())
+                QSizeF(800, 600).toSize(), type='QSize'))
             self.move(qsettings.value("window/pos",
-                QPoint(100, 100)).toPoint())
+                QPointF(100, 100).toPoint(), type='QPoint'))
 
     def closeEvent(self, event):
         if self.s_listener:
             self.s_listener.close()
-        if settings.CONFIRM_EXIT and \
-        self.mainContainer.check_for_unsaved_tabs():
+        if (settings.CONFIRM_EXIT and
+                self.mainContainer.check_for_unsaved_tabs()):
             unsaved_files = self.mainContainer.get_unsaved_files()
             txt = '\n'.join(unsaved_files)
             val = QMessageBox.question(self,
                 self.tr("Some changes were not saved"),
-                self.tr("%1\n\nDo you want to exit anyway?").arg(txt),
-                QMessageBox.Yes, QMessageBox.No)
-            if val == QMessageBox.No:
+                (self.tr("%s\n\nDo you want to save them?") % txt),
+                QMessageBox.Yes, QMessageBox.No, QMessageBox.Cancel)
+            if val == QMessageBox.Yes:
+                #Saves all open files
+                self.mainContainer.save_all()
+            if val == QMessageBox.Cancel:
                 event.ignore()
-        QApplication.instance().setCursorFlashTime(cursor_flash_time)
         self.emit(SIGNAL("goingDown()"))
         self.save_settings()
         completion_daemon.shutdown_daemon()
@@ -432,6 +485,12 @@ class __IDE(QMainWindow):
                 plugin_error_dialog.add_traceback(err_tuple[0], err_tuple[1])
             #show the dialog
             plugin_error_dialog.exec_()
+
+    def show_python_detection(self):
+        suggested = settings.detect_python_path()
+        if suggested:
+            dialog = python_detect_dialog.PythonDetectDialog(suggested, self)
+            dialog.show()
 
 
 ###############################################################################
@@ -467,29 +526,34 @@ def start(filenames=None, projects_path=None,
     app.processEvents()
 
     # Set the cursor to unblinking
-    global cursor_flash_time
-    cursor_flash_time = app.cursorFlashTime()
-    app.setCursorFlashTime(0)
+    if sys.platform != 'win32':
+        app.setCursorFlashTime(0)
 
     #Set the codec for strings (QString)
     QTextCodec.setCodecForCStrings(QTextCodec.codecForName('utf-8'))
 
     #Translator
-    qsettings = QSettings()
-    language = QLocale.system().language()
-    lang = unicode(qsettings.value(
-        'preferences/interface/language', language).toString()) + '.qm'
-    lang_path = file_manager.create_path(resources.LANGS, unicode(lang))
+    #qsettings = QSettings()
+    qsettings = QSettings(resources.SETTINGS_PATH, QSettings.IniFormat)
+    language = QLocale.system().name()
+    lang = qsettings.value('preferences/interface/language',
+        defaultValue=language, type='QString') + '.qm'
+    lang_path = file_manager.create_path(resources.LANGS, lang)
     if file_manager.file_exists(lang_path):
         settings.LANGUAGE = lang_path
     elif file_manager.file_exists(file_manager.create_path(
-      resources.LANGS_DOWNLOAD, unicode(lang))):
+      resources.LANGS_DOWNLOAD, lang)):
         settings.LANGUAGE = file_manager.create_path(
-            resources.LANGS_DOWNLOAD, unicode(lang))
+            resources.LANGS_DOWNLOAD, lang)
     translator = QTranslator()
     if settings.LANGUAGE:
         translator.load(settings.LANGUAGE)
         app.installTranslator(translator)
+
+        qtTranslator = QTranslator()
+        qtTranslator.load("qt_" + language,
+            QLibraryInfo.location(QLibraryInfo.TranslationsPath))
+        app.installTranslator(qtTranslator)
 
     #Loading Syntax
     splash.showMessage("Loading Syntax", Qt.AlignRight | Qt.AlignTop, Qt.black)
@@ -523,8 +587,8 @@ def start(filenames=None, projects_path=None,
     #Loading Schemes
     splash.showMessage("Loading Schemes",
         Qt.AlignRight | Qt.AlignTop, Qt.black)
-    scheme = unicode(qsettings.value('preferences/editor/scheme',
-        "default").toString())
+    scheme = qsettings.value('preferences/editor/scheme', "default",
+        type='QString')
     if scheme != 'default':
         scheme = file_manager.create_path(resources.EDITOR_SKINS,
             scheme + '.color')
@@ -544,42 +608,60 @@ def start(filenames=None, projects_path=None,
     splash.showMessage("Loading Files and Projects",
         Qt.AlignRight | Qt.AlignTop, Qt.black)
     #Files in Main Tab
-    mainFiles = qsettings.value('openFiles/mainTab', []).toList()
+    main_files = qsettings.value('openFiles/mainTab', [])
+    if main_files is not None:
+        mainFiles = list(main_files)
+    else:
+        mainFiles = list()
     tempFiles = []
     for file_ in mainFiles:
-        fileData = file_.toList()
-        tempFiles.append((unicode(fileData[0].toString()),
-            fileData[1].toInt()[0]))
+        fileData = list(file_)
+        if fileData:
+            lineno = fileData[1]
+            tempFiles.append((fileData[0], lineno))
     mainFiles = tempFiles
     #Files in Secondary Tab
-    secondaryFiles = qsettings.value('openFiles/secondaryTab', []).toList()
+    sec_files = qsettings.value('openFiles/secondaryTab', [])
+    if sec_files is not None:
+        secondaryFiles = list(sec_files)
+    else:
+        secondaryFiles = list()
     tempFiles = []
     for file_ in secondaryFiles:
-        fileData = file_.toList()
-        tempFiles.append((unicode(fileData[0].toString()),
-            fileData[1].toInt()[0]))
+        fileData = list(file_)
+        lineno = fileData[1]
+        tempFiles.append((fileData[0], lineno))
     secondaryFiles = tempFiles
+    # Recent Files
+    recent = qsettings.value('openFiles/recentFiles', [])
+    if recent is not None:
+        recent_files = list(recent)
+    else:
+        recent_files = list()
+    recent_files = [file_ for file_ in recent_files]
     #Current File
-    current_file = unicode(
-        qsettings.value('openFiles/currentFile', '').toString())
+    current_file = qsettings.value('openFiles/currentFile', '', type='QString')
     #Projects
-    projects = qsettings.value('openFiles/projects', []).toList()
-    projects = [unicode(project.toString()) for project in projects]
+    projects_list = qsettings.value('openFiles/projects', [])
+    if projects_list is not None:
+        projects = list(projects_list)
+    else:
+        projects = list()
+    projects = [project for project in projects]
     #Include files received from console args
-    file_with_nro = map(lambda f: (f[0], f[1] - 1), zip(filenames, linenos))
-    file_without_nro = map(lambda f: (f, 0), filenames[len(linenos):])
+    file_with_nro = list([(f[0], f[1] - 1) for f in zip(filenames, linenos)])
+    file_without_nro = list([(f, 0) for f in filenames[len(linenos):]])
     mainFiles += file_with_nro + file_without_nro
     #Include projects received from console args
     if projects_path:
         projects += projects_path
-    mainFiles.reverse()
-    secondaryFiles.reverse()
     ide.load_session_files_projects(mainFiles, secondaryFiles, projects,
-        current_file)
+        current_file, recent_files)
     #Load external plugins
     if extra_plugins:
         ide.load_external_plugins(extra_plugins)
 
     splash.finish(ide)
     ide.notify_plugin_errors()
+    ide.show_python_detection()
     sys.exit(app.exec_())
