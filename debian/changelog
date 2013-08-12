@@ -3,8 +3,9 @@ ninja-ide (2.3-1) UNRELEASED; urgency=low
   * New upstream version
   * Patches refreshed to apply to new code
   * Make Vcs-* fields canonical
+  * Drop obsolete lintian override
 
- -- David Paleino <dapal@debian.org>  Mon, 12 Aug 2013 16:19:44 +0200
+ -- David Paleino <dapal@debian.org>  Mon, 12 Aug 2013 16:20:18 +0200
 
 ninja-ide (2.1.1+ds1-1) unstable; urgency=low
 
