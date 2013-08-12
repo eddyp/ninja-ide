@@ -6,3 +6,4 @@ Icon=ninja-ide
 Terminal=false
 Type=Application
 Categories=Development;IDE;Qt;
+Keywords=development;python;IDE;
