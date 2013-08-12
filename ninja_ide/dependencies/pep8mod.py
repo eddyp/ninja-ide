@@ -92,6 +92,7 @@ before the docstring, you can use \n for newline, \t for tab and \s
 for space.
 
 """
+from __future__ import unicode_literals
 
 __version__ = '1.3.4a0'
 
@@ -102,13 +103,16 @@ import inspect
 import keyword
 import tokenize
 
+from ninja_ide import resources
+
 DEFAULT_EXCLUDE = '.svn,CVS,.bzr,.hg,.git'
 DEFAULT_IGNORE = 'E24'
 if sys.platform == 'win32':
-    DEFAULT_CONFIG = os.path.expanduser(r'~\.pep8')
+    DEFAULT_CONFIG = os.path.join(resources.HOME_PATH, r'.pep8')
 else:
     DEFAULT_CONFIG = os.path.join(os.getenv('XDG_CONFIG_HOME') or
-                                  os.path.expanduser('~/.config'), 'pep8')
+                                  os.path.join(
+                                      resources.HOME_PATH, '.config'), 'pep8')
 MAX_LINE_LENGTH = 79
 REPORT_FORMAT = {
     'default': '%(path)s:%(row)d:%(col)d: %(code)s %(text)s',
@@ -1096,7 +1100,7 @@ def find_checks(argument_name):
     starts with argument_name.
     """
     checks = []
-    for name, function in globals().items():
+    for name, function in list(globals().items()):
         if not inspect.isfunction(function):
             continue
         args = inspect.getargspec(function)[0]
@@ -1328,10 +1332,10 @@ def run_check(fileName, source):
     Parse options and run checks on Python source.
     """
     try:
-        lines = [line + '\n' for line in source.splitlines()]
+        lines = ['%s\n' % line for line in source.splitlines()]
         return Checker(fileName, lines).check_all()
-    except Exception, reason:
-        print('pep8mod couldn\'t parse file: {0}'.format(fileName))
-        print reason
+    except Exception as reason:
+        print(('pep8mod couldn\'t parse file: {0}'.format(fileName)))
+        print(reason)
         raise
     return []

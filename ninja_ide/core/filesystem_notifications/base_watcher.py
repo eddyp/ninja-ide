@@ -18,6 +18,10 @@ import os
 from PyQt4.QtCore import QObject
 from PyQt4.QtCore import SIGNAL, QThread
 
+from ninja_ide.tools.logger import NinjaLogger
+logger = NinjaLogger('ninja_ide.core.filesystem_notifications.Watcher')
+DEBUG = logger.debug
+
 ADDED = 1
 MODIFIED = 2
 DELETED = 3
@@ -60,7 +64,7 @@ class SingleFileWatcher(QThread):
             self._watches.pop(file_to_unwatch)
 
     def tick(self):
-        keys = self._watches.keys()
+        keys = list(self._watches.keys())
         for each_file in keys:
             status = do_stat(each_file)
             if not status:
@@ -95,7 +99,7 @@ class BaseWatcher(QObject):
             self._single_file_watcher = \
                 SingleFileWatcher(self._emit_signal_on_change)
             self.connect(self._single_file_watcher,
-                SIGNAL("destroyed(QObject*)"), self.on_destroy)
+                         SIGNAL("destroyed(QObject*)"), self.on_destroy)
             self._single_file_watcher.start()
         self._single_file_watcher.add_watch(file_path)
 
@@ -107,6 +111,7 @@ class BaseWatcher(QObject):
                 self._single_file_watcher.quit()
 
     def on_destroy(self):
+        self._single_file_watcher.wait()
         self._single_file_watcher = None
 
     def shutdown_notification(self):
@@ -115,4 +120,5 @@ class BaseWatcher(QObject):
             self._single_file_watcher.quit()
 
     def _emit_signal_on_change(self, event, path):
-        self.emit(SIGNAL("fileChanged(int, QString)"), event, path)
+        DEBUG("About to emit the signal" + repr(event))
+        #self.emit(SIGNAL("fileChanged(int, QString)"), event, path)

@@ -19,16 +19,24 @@ from __future__ import absolute_import
 
 import sys
 
-
-if sys.platform == 'win32':
-    from ninja_ide.core.filesystem_notifications import windows
-    source = windows
-elif sys.platform == 'darwin':
+try:
+    #if sys.platform == 'win32':
+        #from ninja_ide.core.filesystem_notifications import windows
+        #source = windows
+    #elif sys.platform == 'darwin':
     from ninja_ide.core.filesystem_notifications import darwin
     source = darwin
-else:
-    from ninja_ide.core.filesystem_notifications import linux
-    source = linux
+    #elif sys.platform.startswith("linux"):
+        #from ninja_ide.core.filesystem_notifications import linux
+        #source = linux
+    #else:
+        ##Aything we do not have a clue how to handle
+        #from ninja_ide.core.filesystem_notifications import openbsd
+        #source = openbsd
+except:
+    pass
+    #from ninja_ide.core.filesystem_notifications import openbsd
+    #source = openbsd
 
 
 NinjaFileSystemWatcher = source.NinjaFileSystemWatcher()

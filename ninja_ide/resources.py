@@ -28,11 +28,11 @@ import sys
 # PATHS
 ###############################################################################
 
-HOME_PATH = unicode(QDir.toNativeSeparators(QDir.homePath()))
+HOME_PATH = QDir.toNativeSeparators(QDir.homePath())
 
 NINJA_EXECUTABLE = os.path.realpath(sys.argv[0])
 
-PRJ_PATH = os.path.abspath(os.path.dirname(__file__))
+PRJ_PATH = os.path.abspath(os.path.dirname(__file__)).decode('utf-8')
 #Only for py2exe
 frozen = getattr(sys, 'frozen', '')
 if frozen in ('dll', 'console_exe', 'windows_exe'):
@@ -41,6 +41,8 @@ if frozen in ('dll', 'console_exe', 'windows_exe'):
 
 HOME_NINJA_PATH = os.path.join(HOME_PATH, ".ninja_ide")
 
+SETTINGS_PATH = os.path.join(HOME_NINJA_PATH, 'settings.ini')
+
 ADDINS = os.path.join(HOME_NINJA_PATH, "addins")
 
 SYNTAX_FILES = os.path.join(PRJ_PATH, "addins", "syntax")
@@ -48,7 +50,7 @@ SYNTAX_FILES = os.path.join(PRJ_PATH, "addins", "syntax")
 PLUGINS = os.path.join(HOME_NINJA_PATH, "addins", "plugins")
 
 PLUGINS_DESCRIPTOR = os.path.join(HOME_NINJA_PATH, "addins",
-                                    "plugins", "descriptor.json")
+                                  "plugins", "descriptor.json")
 
 LANGS = os.path.join(PRJ_PATH, "addins", "lang")
 
@@ -69,13 +71,15 @@ LOG_FILE_PATH = os.path.join(HOME_NINJA_PATH, 'ninja_ide.log')
 
 GET_SYSTEM_PATH = os.path.join(PRJ_PATH, 'tools', 'get_system_path.py')
 
+QML_FILES = os.path.join(PRJ_PATH, "addins", "qml")
+
 ###############################################################################
 # URLS
 ###############################################################################
 
 BUGS_PAGE = "https://github.com/ninja-ide/ninja-ide/issues"
 
-PLUGINS_DOC = "http://code.google.com/p/ninja-ide/wiki/New_Plugins_API"
+PLUGINS_DOC = "http://ninja-ide.readthedocs.org/en/latest/"
 
 UPDATES_URL = 'http://ninja-ide.org/updates'
 
@@ -93,23 +97,20 @@ PLUGINS_COMMUNITY = 'http://ninja-ide.org/plugins/api/community'
 ###############################################################################
 
 IMAGES = {
-    "splash": os.path.join(PRJ_PATH, "img", "splash.jpg"),
+    "splash": os.path.join(PRJ_PATH, "img", "splash.png"),
     "icon": os.path.join(PRJ_PATH, "img", "icon.png"),
     "iconUpdate": os.path.join(PRJ_PATH, "img", "icon.png"),
     "new": os.path.join(PRJ_PATH, "img", "document-new.png"),
     "newProj": os.path.join(PRJ_PATH, "img", "project-new.png"),
     "open": os.path.join(PRJ_PATH, "img", "document-open.png"),
     "openProj": os.path.join(PRJ_PATH, "img", "project-open.png"),
-    "favProj": os.path.join(PRJ_PATH, "img", "favorite-project.png"),
-    "unfavProj": os.path.join(PRJ_PATH, "img", "unfavorite-project.png"),
-    "delProj": os.path.join(PRJ_PATH, "img", "delete-project.png"),
     "openFolder": os.path.join(PRJ_PATH, "img", "folder-open.png"),
     "save": os.path.join(PRJ_PATH, "img", "document-save.png"),
     "saveAs": os.path.join(PRJ_PATH, "img", "document-save-as.png"),
     "saveAll": os.path.join(PRJ_PATH, "img", "document-save-all.png"),
     "activate-profile": os.path.join(PRJ_PATH, "img", "activate_profile.png"),
     "deactivate-profile": os.path.join(PRJ_PATH, "img",
-        "deactivate_profile.png"),
+                                       "deactivate_profile.png"),
     "copy": os.path.join(PRJ_PATH, "img", "edit-copy.png"),
     "cut": os.path.join(PRJ_PATH, "img", "edit-cut.png"),
     "paste": os.path.join(PRJ_PATH, "img", "edit-paste.png"),
@@ -138,11 +139,11 @@ IMAGES = {
     "zoom-in": os.path.join(PRJ_PATH, "img", "zoom_in.png"),
     "zoom-out": os.path.join(PRJ_PATH, "img", "zoom_out.png"),
     "splitCPosition": os.path.join(PRJ_PATH, "img",
-                                "panels-change-position.png"),
+                                   "panels-change-position.png"),
     "splitMPosition": os.path.join(PRJ_PATH, "img",
-                                "panels-change-vertical-position.png"),
+                                   "panels-change-vertical-position.png"),
     "splitCRotate": os.path.join(PRJ_PATH, "img",
-                                "panels-change-orientation.png"),
+                                 "panels-change-orientation.png"),
     "indent-less": os.path.join(PRJ_PATH, "img", "indent-less.png"),
     "indent-more": os.path.join(PRJ_PATH, "img", "indent-more.png"),
     "go-to-definition": os.path.join(PRJ_PATH, "img", "go_to_definition.png"),
@@ -171,10 +172,10 @@ IMAGES = {
     "locate-class": os.path.join(PRJ_PATH, "img", "locate-class.png"),
     "locate-function": os.path.join(PRJ_PATH, "img", "locate-function.png"),
     "locate-attributes": os.path.join(PRJ_PATH, "img",
-        "locate-attributes.png"),
+                                      "locate-attributes.png"),
     "locate-nonpython": os.path.join(PRJ_PATH, "img", "locate-nonpython.png"),
     "locate-on-this-file": os.path.join(PRJ_PATH, "img",
-        "locate-on-this-file.png"),
+                                        "locate-on-this-file.png"),
     "locate-tab": os.path.join(PRJ_PATH, "img", "locate-tab.png"),
     "locate-line": os.path.join(PRJ_PATH, "img", "locate-line.png"),
     "add": os.path.join(PRJ_PATH, "img", "add.png"),
@@ -204,7 +205,9 @@ COLOR_SCHEME = {
     "editor-selection-background": "#437DCD",
     "editor-text": "#B3BFA7",
     "current-line": "#858585",
-    "selected-word": "#009B00",
+    "selected-word": "red",
+    "pending": "red",
+    "selected-word-background": "#009B00",
     "fold-area": "#FFFFFF",
     "fold-arrow": "#454545",
     "linkNavigate": "orange",
@@ -218,6 +221,9 @@ COLOR_SCHEME = {
     "locator-name-selected": "black",
     "locator-path": "gray",
     "locator-path-selected": "white",
+    "migration-underline": "blue",
+    "current-line-opacity": 20,
+    "error-background-opacity": 60,
 }
 
 CUSTOM_SCHEME = {}
@@ -259,12 +265,12 @@ SHORTCUTS = {
     "Full-screen": QKeySequence(Qt.CTRL + Qt.Key_F11),
     "Find": QKeySequence(Qt.CTRL + Qt.Key_F),
     "Find-replace": QKeySequence(Qt.CTRL + Qt.Key_H),
-    "Find-with-word": QKeySequence(Qt.CTRL + Qt.Key_G),
+    "Find-with-word": QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_F),
     "Find-next": QKeySequence(Qt.CTRL + Qt.Key_F3),
     "Find-previous": QKeySequence(Qt.SHIFT + Qt.Key_F3),
     "Help": QKeySequence(Qt.Key_F1),
-    "Split-horizontal": QKeySequence(Qt.Key_F10),
-    "Split-vertical": QKeySequence(Qt.Key_F9),
+    "Split-horizontal": QKeySequence(Qt.Key_F9),
+    "Split-vertical": QKeySequence(Qt.Key_F10),
     "Follow-mode": QKeySequence(Qt.CTRL + Qt.Key_F10),
     "Reload-file": QKeySequence(Qt.Key_F5),
     "Find-in-files": QKeySequence(Qt.CTRL + Qt.Key_L),
@@ -278,12 +284,16 @@ SHORTCUTS = {
     "Open-recent-closed": QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_T),
     "Change-Tab": QKeySequence(Qt.CTRL + Qt.Key_PageDown),
     "Change-Tab-Reverse": QKeySequence(Qt.CTRL + Qt.Key_PageUp),
+    "Move-Tab-to-right": QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_0),
+    "Move-Tab-to-left": QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_9),
     "Show-Code-Nav": QKeySequence(Qt.CTRL + Qt.Key_1),
     "Show-Paste-History": QKeySequence(Qt.CTRL + Qt.Key_4),
     "History-Copy": QKeySequence(Qt.CTRL + Qt.ALT + Qt.Key_C),
     "History-Paste": QKeySequence(Qt.CTRL + Qt.ALT + Qt.Key_V),
     "Add-Bookmark-or-Breakpoint": QKeySequence(Qt.CTRL + Qt.Key_B),
     "change-split-focus": QKeySequence(Qt.CTRL + Qt.Key_Tab),
+    "move-tab-to-next-split": QKeySequence(Qt.SHIFT + Qt.Key_F10),
+    "change-tab-visibility": QKeySequence(Qt.SHIFT + Qt.Key_F1),
     "Highlight-Word": QKeySequence(Qt.CTRL + Qt.Key_Down)}
 
 CUSTOM_SHORTCUTS = {}
@@ -299,13 +309,13 @@ def load_shortcuts():
     """
     global SHORTCUTS
     global CUSTOM_SHORTCUTS
-    settings = QSettings()
+    settings = QSettings(SETTINGS_PATH, QSettings.IniFormat)
     for action in SHORTCUTS:
         #default shortcut
         default_action = SHORTCUTS[action].toString()
         #get the custom shortcut or the default
         shortcut_action = settings.value("shortcuts/%s" % action,
-            default_action).toString()
+                                         default_action)
         #set the shortcut
         CUSTOM_SHORTCUTS[action] = QKeySequence(shortcut_action)
 
@@ -318,6 +328,14 @@ def get_shortcut(shortcut_name):
     global SHORTCUTS
     global CUSTOM_SHORTCUTS
     return CUSTOM_SHORTCUTS.get(shortcut_name, SHORTCUTS.get(shortcut_name))
+
+
+def clean_custom_shortcuts():
+    """
+    Cleans CUSTOMS_SHORTCUTS
+    """
+    global CUSTOM_SHORTCUTS
+    CUSTOM_SHORTCUTS = {}
 
 
 def create_home_dir_structure():

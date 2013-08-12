@@ -58,7 +58,7 @@ for mn, urlm in NEEDED_MODULES:
     try:
         __import__(mn)
     except ImportError:
-        print "Module '%s' not found. For more details see '%s'.\n" % (mn, urlm)
+        print("Module '%s' not found. For more details: '%s'.\n" % (mn, urlm))
         sys.exit(1)
 
 
@@ -95,19 +95,17 @@ params = {
 
     # include all resources
     "include_package_data": True,
-    "package_data": {'': ['*.png', '*.json', '*.qss',
-        '*.js', '*.html', '*.css']},
+    "package_data": {'': ['*.png', '*.gif', '*.jpg', '*.json', '*.qss',
+        '*.js', '*.html', '*.css', '*.qm', '*.qml']},
 
     # include ninja pkg and setup the run script
     "packages": find_packages() + [
         'ninja_ide/addins',
+        'ninja_ide/addins/lang',
+        'ninja_ide/addins/qml',
+        'ninja_ide/addins/qml/img',
         'ninja_ide/addins/syntax',
         'ninja_ide/addins/theme',
-        'ninja_ide/doc',
-        'ninja_ide/doc/css',
-        'ninja_ide/doc/img',
-        'ninja_ide/doc/js',
-        'ninja_ide/doc/js/libs',
         'ninja_ide/img'],
 
     #auto create scripts

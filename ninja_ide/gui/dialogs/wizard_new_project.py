@@ -33,6 +33,8 @@ from PyQt4.QtGui import QHBoxLayout
 from PyQt4.QtGui import QMessageBox
 from PyQt4.QtGui import QFileDialog
 from PyQt4.QtGui import QListWidget
+from PyQt4.QtGui import QCompleter
+from PyQt4.QtGui import QDirModel
 from PyQt4.QtGui import QPixmap
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
@@ -102,18 +104,18 @@ class WizardNewProject(QWizard):
         if result == 1:
             page = self.currentPage()
             if type(page) == PageProjectProperties:
-                venv = unicode(page.vtxtPlace.text())
+                venv = page.vtxtPlace.text()
                 if venv:
                     if sys.platform == 'win32':
                         venv = os.path.join(venv, 'Scripts', 'python.exe')
                     else:
                         venv = os.path.join(venv, 'bin', 'python')
                     #check if venv folder exists
-                    if  not os.path.exists(venv):
+                    if not os.path.exists(venv):
                         btnPressed = QMessageBox.information(self,
                             self.tr("Virtualenv Folder"),
-                            self.tr("Folder don't exists or this is not a " \
-                                "valid Folder.\n If you want to set " \
+                            self.tr("Folder don't exists or this is not a "
+                                "valid Folder.\n If you want to set "
                                 "or modify, go to project properties"),
                             self.tr("Back"),
                             self.tr("Continue"))
@@ -170,17 +172,19 @@ class PythonProjectHandler(plugin_interfaces.IProjectTypeHandler):
         """
         ids = wizard.pageIds()
         page = wizard.page(ids[1])
-        path = unicode(page.txtPlace.text())
+        name = page.txtName.text()
+        path = os.path.join(page.txtPlace.text(), name)
         if not path:
             QMessageBox.critical(self, self.tr("Incorrect Location"),
                 self.tr("The project couldn\'t be create"))
             return
+        if not os.path.exists(path):
+            os.makedirs(path)
         project = {}
-        name = unicode(page.txtName.text())
         project['name'] = name
-        project['description'] = unicode(page.txtDescription.toPlainText())
-        project['license'] = unicode(page.cboLicense.currentText())
-        project['venv'] = unicode(page.vtxtPlace.text())
+        project['description'] = page.txtDescription.toPlainText()
+        project['license'] = page.cboLicense.currentText()
+        project['venv'] = page.vtxtPlace.text()
         json_manager.create_ninja_project(path, name, project)
         try:
             file_manager.create_init_file(path)
@@ -219,18 +223,18 @@ class ImportFromSourcesProjectHandler(plugin_interfaces.IProjectTypeHandler):
         """
         ids = wizard.pageIds()
         page = wizard.page(ids[1])
-        path = unicode(page.txtPlace.text())
+        name = page.txtName.text()
+        path = page.txtPlace.text()
         if not path:
             QMessageBox.critical(self, self.tr("Incorrect Location"),
                 self.tr("The project couldn\'t be create"))
             return
         project = {}
-        name = unicode(page.txtName.text())
         project['name'] = name
-        project['description'] = unicode(page.txtDescription.toPlainText())
-        project['license'] = unicode(page.cboLicense.currentText())
-        project['venv'] = unicode(page.vtxtPlace.text())
-        project['project-type'] = unicode(wizard.option)
+        project['description'] = page.txtDescription.toPlainText()
+        project['license'] = page.cboLicense.currentText()
+        project['venv'] = page.vtxtPlace.text()
+        project['project-type'] = wizard.option
         json_manager.create_ninja_project(path, name, project)
         wizard._load_project(path)
 
@@ -258,16 +262,16 @@ class PageProjectType(QWizardPage):
         self.listWidget.addItems(types)
         self.listWidget.setCurrentRow(0)
 
-        self.connect(self.listWidget, SIGNAL("itemActivated(QListWidgetItem*)"),
+        self.connect(self.listWidget,
+            SIGNAL("itemClicked(QListWidgetItem *)"),
             self.load_pages)
 
     def validatePage(self):
-        self._wizard.option = unicode(self.listWidget.currentItem().text())
+        self._wizard.option = self.listWidget.currentItem().text()
         return True
 
     def load_pages(self):
-        self.wizard().add_project_pages(
-            unicode(self.listWidget.currentItem().text()))
+        self.wizard().add_project_pages(self.listWidget.currentItem().text())
 
 
 ###############################################################################
@@ -286,7 +290,7 @@ class PageProjectProperties(QWizardPage):
         gbox = QGridLayout(self)
         #Names of the fields to complete
         self.lblName = QLabel(self.tr("New Project Name (*):"))
-        self.lblPlace = QLabel(self.tr("Project Location (*):"))
+        self.lblPlace = QLabel(self.tr("Create in (*):"))
         self.lblDescription = QLabel(self.tr("Project Description:"))
         self.lblLicense = QLabel(self.tr("Project License:"))
         self.lblVenvFolder = QLabel(self.tr("Virtualenv Folder:"))
@@ -303,14 +307,16 @@ class PageProjectProperties(QWizardPage):
         hPlace = QHBoxLayout()
         self.txtPlace = QLineEdit()
         self.txtPlace.setReadOnly(True)
-        self.btnExamine = QPushButton(self.tr("Examine..."))
+        self.btnExamine = QPushButton(self.tr("Browse..."))
         hPlace.addWidget(self.txtPlace)
         hPlace.addWidget(self.btnExamine)
         #Virtualenv
         vPlace = QHBoxLayout()
         self.vtxtPlace = QLineEdit()
-        self.vtxtPlace.setReadOnly(True)
-        self.vbtnExamine = QPushButton(self.tr("Examine..."))
+        self._dir_completer = QCompleter()
+        self._dir_completer.setModel(QDirModel(self._dir_completer))
+        self.vtxtPlace.setCompleter(self._dir_completer)
+        self.vbtnExamine = QPushButton(self.tr("Browse..."))
         vPlace.addWidget(self.vtxtPlace)
         vPlace.addWidget(self.vbtnExamine)
         #Project Description
@@ -326,6 +332,7 @@ class PageProjectProperties(QWizardPage):
         self.cboLicense.addItem('GNU Lesser General Public License')
         self.cboLicense.addItem('MIT License')
         self.cboLicense.addItem('Mozilla Public License 1.1')
+        self.cboLicense.addItem('Mozilla Public License 2.0')
         self.cboLicense.addItem('New BSD License')
         self.cboLicense.addItem('Other Open Source')
         self.cboLicense.addItem('Other')
@@ -344,15 +351,15 @@ class PageProjectProperties(QWizardPage):
             lambda: self.emit(SIGNAL("completeChanged()")))
 
     def isComplete(self):
-        name = unicode(self.txtName.text()).strip()
-        place = unicode(self.txtPlace.text()).strip()
+        name = self.txtName.text().strip()
+        place = self.txtPlace.text().strip()
         return (len(name) > 0) and (len(place) > 0)
 
     def load_folder(self):
-        self.txtPlace.setText(unicode(QFileDialog.getExistingDirectory(
-            self, self.tr("New Project Folder"))))
+        self.txtPlace.setText(QFileDialog.getExistingDirectory(
+            self, self.tr("New Project Folder")))
         self.emit(SIGNAL("completeChanged()"))
 
     def load_folder_venv(self):
-        self.vtxtPlace.setText(unicode(QFileDialog.getExistingDirectory(
-            self, self.tr("Select Virtualenv Folder"))))
+        self.vtxtPlace.setText(QFileDialog.getExistingDirectory(
+            self, self.tr("Select Virtualenv Folder")))

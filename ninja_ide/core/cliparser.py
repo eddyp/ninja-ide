@@ -22,11 +22,18 @@ import sys
 import ninja_ide
 
 
+try:
+    # For Python2
+    str = unicode  # lint:ok
+except NameError:
+    # We are in Python3
+    pass
+
 usage = "$python ninja-ide.py <option, [option3...option n]>"
 
-epilog = "This program comes with ABSOLUTELY NO WARRANTY." + \
-    "This is free software, and you are welcome to redistribute " + \
-    "it under certain conditions; for details see LICENSE.txt."
+epilog = ("This program comes with ABSOLUTELY NO WARRANTY."
+          "This is free software, and you are welcome to redistribute "
+          "it under certain conditions; for details see LICENSE.txt.")
 
 try:
     import argparse
@@ -39,23 +46,26 @@ try:
 
         parser = argparse.ArgumentParser(description=usage, epilog=epilog)
 
-        parser.add_argument('file', metavar='file', type=unicode,
-            nargs='*', help='A file/s to edit', default=[])
-        parser.add_argument('-f', '--files', metavar='file', type=unicode,
-            nargs='+', help='A file/s to edit', default=[])
+        parser.add_argument('file', metavar='file', type=str,
+                            nargs='*', help='A file/s to edit', default=[])
+        parser.add_argument('-f', '--files', metavar='file', type=str,
+                            nargs='+', help='A file/s to edit', default=[])
         parser.add_argument('-l', '--lineno', metavar='lineno', type=int,
-            nargs='+', help='Line number for the files to open', default=[])
-        parser.add_argument('-p', '--project', metavar='project', type=unicode,
-            nargs='+', help='A project/s to edit', default=[])
+                            nargs='+',
+                            help='Line number for the files to open',
+                            default=[])
+        parser.add_argument('-p', '--project', metavar='project', type=str,
+                            nargs='+', help='A project/s to edit', default=[])
         parser.add_argument('--plugin',
-            metavar='plugin', type=unicode,
-            nargs='+', help='A plugin to load', default=[])
+                            metavar='plugin', type=str,
+                            nargs='+', help='A plugin to load', default=[])
         parser.add_argument('--loglevel', help="Level to use for logging, "
-                    "one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
-                    default=None, metavar="loglevel")
+                            "one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', "
+                            "'CRITICAL'",
+                            default=None, metavar="loglevel")
         parser.add_argument('--logfile', help="A file path to log, special "
-                                        "words STDOUT or STDERR are accepted",
-                                        default=None, metavar="logfile")
+                            "words STDOUT or STDERR are accepted",
+                            default=None, metavar="logfile")
         return parser
 
 except ImportError:
@@ -80,44 +90,44 @@ except ImportError:
                 final_nargs = nargs
         return final_nargs
 
-    def _get_parser():
+    def _get_parser():  # lint:ok
         global usage
         global epilog
 
         parser = optparse.OptionParser(usage, version=ninja_ide.__version__,
-            epilog=epilog)
+                                       epilog=epilog)
 
         parser.add_option("-f", "--file",
-            type="string",
-            action="store",
-            dest="file",
-            default=[],
-            help="A file/s to edit",
-            nargs=_resolve_nargs("-f", "--file"))
+                          type="string",
+                          action="store",
+                          dest="file",
+                          default=[],
+                          help="A file/s to edit",
+                          nargs=_resolve_nargs("-f", "--file"))
 
         parser.add_option("-p", "--project",
-            type="string",
-            action="store",
-            dest="project",
-            default=[],
-            help="A project/s to edit",
-            nargs=_resolve_nargs("-p", "--project"))
+                          type="string",
+                          action="store",
+                          dest="project",
+                          default=[],
+                          help="A project/s to edit",
+                          nargs=_resolve_nargs("-p", "--project"))
 
         parser.add_option("-l", "--lineno",
-            type="int",
-            action="store",
-            dest="lineno",
-            default=[],
-            help="Line number for the files to open",
-            nargs=_resolve_nargs("-l", "--lineno"))
+                          type="int",
+                          action="store",
+                          dest="lineno",
+                          default=[],
+                          help="Line number for the files to open",
+                          nargs=_resolve_nargs("-l", "--lineno"))
 
         parser.add_option("--plugin",
-            type="string",
-            action="store",
-            dest="plugin",
-            default=[],
-            help="A plugin to load",
-            nargs=_resolve_nargs("--plugin"))
+                          type="string",
+                          action="store",
+                          dest="plugin",
+                          default=[],
+                          help="A plugin to load",
+                          nargs=_resolve_nargs("--plugin"))
 
         return parser
 
@@ -144,17 +154,17 @@ def parse():
             else []
         projects_path = opts.project \
             if isinstance(opts.project, list) \
-            else  [opts.project]
+            else [opts.project]
         linenos = opts.lineno \
             if hasattr(opts, 'lineno') \
-            else  [opts.lineno]
+            else [opts.lineno]
         extra_plugins = opts.plugin \
             if isinstance(opts.plugin, list) \
-            else  [opts.plugin]
+            else [opts.plugin]
         log_level = opts.loglevel
         log_file = opts.logfile
 
-    except Exception, reason:
+    except Exception as reason:
         print("Args couldn't be parsed.")
         print(reason)
     return (filenames, projects_path, extra_plugins, linenos, log_level,

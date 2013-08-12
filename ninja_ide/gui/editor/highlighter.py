@@ -17,18 +17,21 @@
 # based on Python Syntax highlighting from:
 # http://diotavelli.net/PyQtWiki/Python%20syntax%20highlighting
 from __future__ import absolute_import
+from __future__ import unicode_literals
+
+import re
 
 from PyQt4.QtGui import QColor
 from PyQt4.QtGui import QTextCharFormat
 from PyQt4.QtGui import QFont
 from PyQt4.QtGui import QSyntaxHighlighter
-from PyQt4.QtGui import QTextBlockUserData
 from PyQt4.QtCore import QThread
 from PyQt4.QtCore import QRegExp
 from PyQt4.QtCore import SIGNAL
 
 from ninja_ide import resources
 from ninja_ide.core import settings
+from ninja_ide.gui.editor import syntax_highlighter
 
 
 def format(color, style=''):
@@ -49,66 +52,48 @@ def format(color, style=''):
 
 # Syntax styles that can be shared by all languages
 STYLES = {}
+SDEFAULTS = (
+    ("keyword", "keyword", "bold"),
+    ("operator", "operator", None),
+    ("brace", "brace", None),
+    ("definition", "definition", "bold"),
+    ("string", "string", None),
+    ("string2", "string2", None),
+    ("comment", "comment", "italic"),
+    ("properObject", "properObject", None),
+    ("numbers", "numbers", None),
+    ("spaces", "spaces", None),
+    ("extras", "extras", "bold"),
+    ("selectedWord", "selected-word", None),
+)
 
 
 def restyle(scheme):
-    STYLES['keyword'] = format(scheme.get('keyword',
-        resources.COLOR_SCHEME['keyword']), 'bold')
-    STYLES['operator'] = format(scheme.get('operator',
-        resources.COLOR_SCHEME['operator']))
-    STYLES['brace'] = format(scheme.get('brace',
-        resources.COLOR_SCHEME['brace']))
-    STYLES['definition'] = format(scheme.get('definition',
-        resources.COLOR_SCHEME['definition']), 'bold')
-    STYLES['string'] = format(scheme.get('string',
-        resources.COLOR_SCHEME['string']))
-    STYLES['string2'] = format(scheme.get('string2',
-        resources.COLOR_SCHEME['string2']))
-    STYLES['comment'] = format(scheme.get('comment',
-        resources.COLOR_SCHEME['comment']), 'italic')
-    STYLES['properObject'] = format(scheme.get('properObject',
-        resources.COLOR_SCHEME['properObject']), 'italic')
-    STYLES['numbers'] = format(scheme.get('numbers',
-        resources.COLOR_SCHEME['numbers']))
-    STYLES['spaces'] = format(scheme.get('spaces',
-        resources.COLOR_SCHEME['spaces']))
-    STYLES['extras'] = format(scheme.get('extras',
-        resources.COLOR_SCHEME['extras']), 'bold')
-    STYLES['selectedWord'] = scheme.get('selected-word',
-        resources.COLOR_SCHEME['selected-word'])
+    """Reset the style for each highlighting item when the scheme change."""
+    rescs = resources.COLOR_SCHEME
+    global STYLES
 
-
-class SyntaxUserData(QTextBlockUserData):
-
-    def __init__(self, error=False):
-        super(SyntaxUserData, self).__init__()
-        self.error = error
-        self.str_groups = []
-        self.comment_start = -1
-
-    def clear_data(self):
-        self.error = False
-        self.str_groups = []
-        self.comment_start = -1
-
-    def add_str_group(self, start, end):
-        self.str_groups.append((start + 1, end))
-
-    def comment_start_at(self, pos):
-        self.comment_start = pos
+    for stkw, srkw, default in SDEFAULTS:
+        if default:
+            STYLES[stkw] = format(scheme.get(srkw, rescs[srkw]), default)
+        else:
+            STYLES[stkw] = format(scheme.get(srkw, rescs[srkw]))
 
 
 class Highlighter(QSyntaxHighlighter):
+    """Syntax Highlighter for NINJA-IDE."""
 
     # braces
     braces = ['\\(', '\\)', '\\{', '\\}', '\\[', '\\]']
 
     def __init__(self, document, lang=None, scheme=None,
-      errors=None, pep8=None):
+      errors=None, pep8=None, migration=None):
         QSyntaxHighlighter.__init__(self, document)
         self.highlight_function = self.realtime_highlight
         self.errors = errors
         self.pep8 = pep8
+        self.migration = migration
+        self._old_search = None
         self.selected_word_lines = []
         self.visible_limits = (0, 50)
         self._styles = {}
@@ -116,9 +101,11 @@ class Highlighter(QSyntaxHighlighter):
             self.apply_highlight(lang, scheme)
 
     def sanitize(self, word):
+        """Sanitize the string to avoid problems with the regex."""
         return word.replace('\\', '\\\\')
 
     def apply_highlight(self, lang, scheme=None, syntax=None):
+        """Set the rules that will decide what to highlight and how."""
         if syntax is None:
             langSyntax = settings.SYNTAX.get(lang, {})
         else:
@@ -151,6 +138,7 @@ class Highlighter(QSyntaxHighlighter):
 
         rules.append((r'__\w+__', 0, STYLES['properObject']))
 
+        # Classes and functions
         definition = langSyntax.get('definition', [])
         for de in definition:
             expr = r'\b%s\b\s*(\w+)' % de
@@ -164,6 +152,7 @@ class Highlighter(QSyntaxHighlighter):
             STYLES['numbers']),
         ]
 
+        # Regular expressions
         regex = langSyntax.get('regex', [])
         for reg in regex:
             expr = reg[0]
@@ -178,12 +167,14 @@ class Highlighter(QSyntaxHighlighter):
                 style = reg[2]
             rules.append((expr, 0, format(color, style)))
 
+        # Strings
         stringChar = langSyntax.get('string', [])
         for sc in stringChar:
             expr = r'"[^"\\]*(\\.[^"\\]*)*"' if sc == '"' \
                 else r"'[^'\\]*(\\.[^'\\]*)*'"
             rules.append((expr, 0, STYLES['string']))
 
+        # Comments
         comments = langSyntax.get('comment', [])
         for co in comments:
             expr = co + '[^\\n]*'
@@ -197,8 +188,10 @@ class Highlighter(QSyntaxHighlighter):
 
         multi = langSyntax.get('multiline_comment', [])
         if multi:
-            self.multi_start = (QRegExp(multi['open']), STYLES['comment'])
-            self.multi_end = (QRegExp(multi['close']), STYLES['comment'])
+            self.multi_start = (QRegExp(
+                re.escape(multi['open'])), STYLES['comment'])
+            self.multi_end = (QRegExp(
+                re.escape(multi['close'])), STYLES['comment'])
         else:
             self.multi_start = None
 
@@ -209,16 +202,35 @@ class Highlighter(QSyntaxHighlighter):
         #Apply Highlight to the document... (when colors change)
         self.rehighlight()
 
-    def set_selected_word(self, word):
+    def set_selected_word(self, word, partial=True):
         """Set the word to highlight."""
-        if len(word) > 2:
+        # partial = True for new highlighter compatibility
+        hl_worthy = len(word) > 2
+        if hl_worthy:
             self.selected_word_pattern = QRegExp(
                 r'\b%s\b' % self.sanitize(word))
         else:
             self.selected_word_pattern = None
 
+        suffix = "(?![A-Za-z_\d])"
+        prefix = "(?<![A-Za-z_\d])"
+        word = re.escape(word)
+        if not partial:
+            word = "%s%s%s" % (prefix, word, suffix)
+        lines = []
+        pat_find = re.compile(word)
+        document = self.document()
+        for lineno, text in enumerate(document.toPlainText().splitlines()):
+            if hl_worthy and pat_find.search(text):
+                lines.append(lineno)
+            elif self._old_search and self._old_search.search(text):
+                lines.append(lineno)
+        # Ask perrito if i don't know what the next line does:
+        self._old_search = hl_worthy and pat_find
+        self.rehighlight_lines(lines)
+
     def __highlight_pep8(self, char_format, user_data):
-        """Highlight the lines with errors."""
+        """Highlight the lines with pep8 errors."""
         user_data.error = True
         char_format = char_format.toCharFormat()
         char_format.setUnderlineColor(QColor(
@@ -229,7 +241,7 @@ class Highlighter(QSyntaxHighlighter):
         return char_format
 
     def __highlight_lint(self, char_format, user_data):
-        """Highlight the lines with errors."""
+        """Highlight the lines with lint errors."""
         user_data.error = True
         char_format = char_format.toCharFormat()
         char_format.setUnderlineColor(QColor(
@@ -239,15 +251,28 @@ class Highlighter(QSyntaxHighlighter):
             QTextCharFormat.WaveUnderline)
         return char_format
 
+    def __highlight_migration(self, char_format, user_data):
+        """Highlight the lines with lint errors."""
+        user_data.error = True
+        char_format = char_format.toCharFormat()
+        char_format.setUnderlineColor(QColor(
+            resources.CUSTOM_SCHEME.get('migration-underline',
+                resources.COLOR_SCHEME['migration-underline'])))
+        char_format.setUnderlineStyle(
+            QTextCharFormat.WaveUnderline)
+        return char_format
+
     def highlightBlock(self, text):
         """Apply syntax highlighting to the given block of text."""
         self.highlight_function(text)
 
     def set_open_visible_area(self, is_line, position):
+        """Set the range of lines that should be highlighted on open."""
         if is_line:
             self.visible_limits = (position - 50, position + 50)
 
     def open_highlight(self, text):
+        """Only highlight the lines inside the accepted range."""
         if self.visible_limits[0] <= self.currentBlock().blockNumber() <= \
            self.visible_limits[1]:
             self.realtime_highlight(text)
@@ -255,6 +280,11 @@ class Highlighter(QSyntaxHighlighter):
             self.setCurrentBlockState(0)
 
     def async_highlight(self):
+        """Execute a thread to collect the info of the things to highlight.
+
+        The thread will collect the data from where to where to highlight,
+        and which kind of highlight to use for those sections, and return
+        that info to the main thread after it process all the file."""
         self.thread_highlight = HighlightParserThread(self)
         self.connect(self.thread_highlight,
             SIGNAL("highlightingDetected(PyQt_PyObject)"),
@@ -262,22 +292,29 @@ class Highlighter(QSyntaxHighlighter):
         self.thread_highlight.start()
 
     def _execute_threaded_highlight(self, styles=None):
+        """Function called with the info collected when the thread ends."""
         self.highlight_function = self.threaded_highlight
         if styles:
             self._styles = styles
             lines = list(set(styles.keys()) -
                 set(range(self.visible_limits[0], self.visible_limits[1])))
+            # Highlight the rest of the lines that weren't highlighted on open
             self.rehighlight_lines(lines, False)
         else:
             self._styles = {}
         self.highlight_function = self.realtime_highlight
+        self.thread_highlight.wait()
 
     def threaded_highlight(self, text):
+        """Highlight each line using the info collected by the thread.
+
+        This function doesn't need to execute the regular expressions to see
+        where the highlighting starts and end for each rule, it just take
+        the start and end point, and the proper highlighting style from the
+        info returned from the thread and applied that to the document."""
         hls = []
         block = self.currentBlock()
-        user_data = block.userData()
-        if user_data is None:
-            user_data = SyntaxUserData(False)
+        user_data = syntax_highlighter.get_user_data(block)
         user_data.clear_data()
         block_number = block.blockNumber()
         highlight_errors = lambda cf, ud: cf
@@ -285,6 +322,9 @@ class Highlighter(QSyntaxHighlighter):
             highlight_errors = self.__highlight_lint
         elif self.pep8 and (block_number in self.pep8.pep8checks):
             highlight_errors = self.__highlight_pep8
+        elif self.migration and (
+             block_number in self.migration.migration_data):
+            highlight_errors = self.__highlight_migration
 
         char_format = block.charFormat()
         char_format = highlight_errors(char_format, user_data)
@@ -318,11 +358,15 @@ class Highlighter(QSyntaxHighlighter):
         block.setUserData(user_data)
 
     def realtime_highlight(self, text):
+        """Highlight each line while it is being edited.
+
+        This function apply the proper highlight to the line being edited
+        by the user, this is a really fast process for each line once you
+        already have the document highlighted, but slow to do it the first
+        time to highlight all the lines together."""
         hls = []
         block = self.currentBlock()
-        user_data = block.userData()
-        if user_data is None:
-            user_data = SyntaxUserData(False)
+        user_data = syntax_highlighter.get_user_data(block)
         user_data.clear_data()
         block_number = block.blockNumber()
         highlight_errors = lambda cf, ud: cf
@@ -330,6 +374,9 @@ class Highlighter(QSyntaxHighlighter):
             highlight_errors = self.__highlight_lint
         elif self.pep8 and (block_number in self.pep8.pep8checks):
             highlight_errors = self.__highlight_pep8
+        elif self.migration and (
+             block_number in self.migration.migration_data):
+            highlight_errors = self.__highlight_migration
 
         char_format = block.charFormat()
         char_format = highlight_errors(char_format, user_data)
@@ -341,7 +388,7 @@ class Highlighter(QSyntaxHighlighter):
             while index >= 0:
                 # We actually want the index of the nth match
                 index = expression.pos(nth)
-                length = expression.cap(nth).length()
+                length = len(expression.cap(nth))
                 char_format = highlight_errors(char_format, user_data)
 
                 if (self.format(index) != STYLES['string']):
@@ -373,10 +420,9 @@ class Highlighter(QSyntaxHighlighter):
 
             while index >= 0:
                 index = self.selected_word_pattern.pos(0)
-                length = self.selected_word_pattern.cap(0).length()
+                length = len(self.selected_word_pattern.cap(0))
                 char_format = self.format(index)
-                color = QColor()
-                color.setNamedColor(STYLES['selectedWord'])
+                color = STYLES['selectedWord'].foreground().color()
                 color.setAlpha(100)
                 char_format.setBackground(color)
                 self.setFormat(index, length, char_format)
@@ -388,16 +434,16 @@ class Highlighter(QSyntaxHighlighter):
         index = expression.indexIn(text, 0)
         while index >= 0:
             index = expression.pos(0)
-            length = expression.cap(0).length()
+            length = len(expression.cap(0))
             char_format = STYLES['spaces']
-            if settings.HIGHLIGHT_WHOLE_LINE:
-                char_format = highlight_errors(char_format, user_data)
+            char_format = highlight_errors(char_format, user_data)
             self.setFormat(index, length, char_format)
             index = expression.indexIn(text, index + length)
 
         block.setUserData(user_data)
 
     def _rehighlight_lines(self, lines):
+        """If the document is valid, highlight the list of lines received."""
         if self.document() is None:
             return
         for line in lines:
@@ -405,16 +451,18 @@ class Highlighter(QSyntaxHighlighter):
             self.rehighlightBlock(block)
 
     def _get_errors_lines(self):
+        """Return the number of lines that contains errors to highlight."""
         errors_lines = []
         block = self.document().begin()
         while block.isValid():
-            user_data = block.userData()
-            if (user_data is not None) and (user_data.error == True):
+            user_data = syntax_highlighter.get_user_data(block)
+            if user_data.error:
                 errors_lines.append(block.blockNumber())
             block = block.next()
         return errors_lines
 
     def rehighlight_lines(self, lines, errors=True):
+        """Rehighlight the lines for errors or selected words."""
         if errors:
             errors_lines = self._get_errors_lines()
             refresh_lines = set(lines + errors_lines)
@@ -452,18 +500,17 @@ class Highlighter(QSyntaxHighlighter):
             # No; multi-line string
             else:
                 self.setCurrentBlockState(in_state)
-                length = text.length() - start + add
+                length = len(text) - start + add
 
             st_fmt = self.format(start)
             start_collides = [pos for pos in hls if pos[0] < start < pos[1]]
 
             # Apply formatting
-            if ((st_fmt != STYLES['comment']) or \
+            if ((st_fmt != STYLES['comment']) or
                ((st_fmt == STYLES['comment']) and
                (self.previousBlockState() != 0))) and \
                 (len(start_collides) == 0):
-                if user_data is not None:
-                    style = highlight_errors(style, user_data)
+                style = highlight_errors(style, user_data)
                 self.setFormat(start, length, style)
             else:
                 self.setCurrentBlockState(0)
@@ -477,6 +524,7 @@ class Highlighter(QSyntaxHighlighter):
             return False
 
     def comment_multiline(self, text, delimiter_end, delimiter_start, style):
+        """Process the beggining and end of a multiline comment."""
         startIndex = 0
         if self.previousBlockState() != 1:
             startIndex = delimiter_start.indexIn(text)
@@ -485,7 +533,7 @@ class Highlighter(QSyntaxHighlighter):
             commentLength = 0
             if endIndex == -1:
                 self.setCurrentBlockState(1)
-                commentLength = text.length() - startIndex
+                commentLength = len(text) - startIndex
             else:
                 commentLength = endIndex - startIndex + \
                     delimiter_end.matchedLength()
@@ -496,12 +544,14 @@ class Highlighter(QSyntaxHighlighter):
 
 
 class HighlightParserThread(QThread):
+    """Thread that collect the highlighting info to the current file."""
 
     def __init__(self, highlighter):
         super(HighlightParserThread, self).__init__()
         self._highlighter = highlighter
 
     def run(self):
+        """Execute this rules in another thread to avoid blocking the ui."""
         styles = {}
         self.msleep(300)
         block = self._highlighter.document().begin()
@@ -515,7 +565,7 @@ class HighlightParserThread(QThread):
                 while index >= 0:
                     # We actually want the index of the nth match
                     index = expression.pos(nth)
-                    length = expression.cap(nth).length()
+                    length = len(expression.cap(nth))
 
                     formats.append((index, length, char_format))
                     index = expression.indexIn(text, index + length)
@@ -525,7 +575,7 @@ class HighlightParserThread(QThread):
             index = expression.indexIn(text, 0)
             while index >= 0:
                 index = expression.pos(0)
-                length = expression.cap(0).length()
+                length = len(expression.cap(0))
                 formats.append((index, length, STYLES['spaces']))
                 index = expression.indexIn(text, index + length)
 
@@ -535,6 +585,7 @@ class HighlightParserThread(QThread):
 
 
 class EmpyHighlighter(QSyntaxHighlighter):
+    """Dummy highlighter to be used when the current file is not recognized."""
 
     def __init__(self, document):
         super(EmpyHighlighter, self).__init__(document)
