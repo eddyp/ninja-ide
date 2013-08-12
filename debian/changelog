@@ -1,6 +1,6 @@
 ninja-ide (2.3-1) UNRELEASED; urgency=low
 
-  * New upstream version
+  * New upstream version (Closes: #719354)
   * Patches refreshed to apply to new code
   * Make Vcs-* fields canonical
   * Drop obsolete lintian override
