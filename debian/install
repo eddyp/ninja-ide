@@ -1,6 +1,4 @@
-ninja_ide/doc/css/ /usr/share/ninja-ide/
-ninja_ide/doc/img/ /usr/share/ninja-ide/
-ninja_ide/doc/startPage.html /usr/share/doc/ninja-ide/
+ninja_ide/addins/ /usr/share/ninja-ide/addins/
 
 icon.png	/usr/share/ninja-ide/img/
 

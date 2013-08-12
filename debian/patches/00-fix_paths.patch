@@ -3,17 +3,47 @@ Subject: fix paths to point to correct locations
 Forwarded: not-needed
 
 ---
- ninja_ide/resources.py |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ ninja_ide/resources.py |   13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
 --- ninja-ide.orig/ninja_ide/resources.py
 +++ ninja-ide/ninja_ide/resources.py
-@@ -58,7 +58,7 @@ LANGS_DOWNLOAD = os.path.join(HOME_NINJA
+@@ -45,25 +45,22 @@ SETTINGS_PATH = os.path.join(HOME_NINJA_
+ 
+ ADDINS = os.path.join(HOME_NINJA_PATH, "addins")
+ 
+-SYNTAX_FILES = os.path.join(PRJ_PATH, "addins", "syntax")
++SYNTAX_FILES = "/usr/share/ninja-ide/addins/syntax"
+ 
+ PLUGINS = os.path.join(HOME_NINJA_PATH, "addins", "plugins")
+ 
+ PLUGINS_DESCRIPTOR = os.path.join(HOME_NINJA_PATH, "addins",
+                                   "plugins", "descriptor.json")
+ 
+-LANGS = os.path.join(PRJ_PATH, "addins", "lang")
++LANGS = "/usr/share/ninja-ide/addins/lang"
+ 
+ LANGS_DOWNLOAD = os.path.join(HOME_NINJA_PATH, "addins", "languages")
  
  EDITOR_SKINS = os.path.join(HOME_NINJA_PATH, "addins", "schemes")
  
 -START_PAGE_URL = os.path.join(PRJ_PATH, "doc", "startPage.html")
-+START_PAGE_URL = "/usr/share/doc/ninja-ide/startPage.html"
++NINJA_THEME = "/usr/share/ninja-ide/addins/theme/ninja_dark.qss"
  
- NINJA_THEME = os.path.join(PRJ_PATH, "addins", "theme", "ninja_dark.qss")
+-NINJA_THEME = os.path.join(PRJ_PATH, "addins", "theme", "ninja_dark.qss")
+-
+-NINJA__THEME_CLASSIC = os.path.join(
+-    PRJ_PATH, "addins", "theme", "ninja_theme.qss")
++NINJA__THEME_CLASSIC = "/usr/share/ninja-ide/addins/ninja_theme.qss"
  
+ NINJA_THEME_DOWNLOAD = os.path.join(HOME_NINJA_PATH, "addins", "theme")
+ 
+@@ -71,7 +68,7 @@ LOG_FILE_PATH = os.path.join(HOME_NINJA_
+ 
+ GET_SYSTEM_PATH = os.path.join(PRJ_PATH, 'tools', 'get_system_path.py')
+ 
+-QML_FILES = os.path.join(PRJ_PATH, "addins", "qml")
++QML_FILES = "/usr/share/ninja-ide/addins/qml"
+ 
+ ###############################################################################
+ # URLS

@@ -1,0 +1,27 @@
+From: David Paleino <dapal@debian.org>
+Subject: don't install data files to Python module directory
+Origin: vendor
+Forwarded: not-needed
+
+---
+ setup.py |    9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+--- ninja-ide.orig/setup.py
++++ ninja-ide/setup.py
+@@ -99,14 +99,7 @@ params = {
+         '*.js', '*.html', '*.css', '*.qm', '*.qml']},
+ 
+     # include ninja pkg and setup the run script
+-    "packages": find_packages() + [
+-        'ninja_ide/addins',
+-        'ninja_ide/addins/lang',
+-        'ninja_ide/addins/qml',
+-        'ninja_ide/addins/qml/img',
+-        'ninja_ide/addins/syntax',
+-        'ninja_ide/addins/theme',
+-        'ninja_ide/img'],
++    "packages": find_packages(),
+ 
+     #auto create scripts
+     "entry_points": {
