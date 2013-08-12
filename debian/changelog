@@ -1,4 +1,4 @@
-ninja-ide (2.3-1) UNRELEASED; urgency=low
+ninja-ide (2.3-1) unstable; urgency=low
 
   * New upstream version (Closes: #719354)
   * Patches refreshed to apply to new code
@@ -6,7 +6,7 @@ ninja-ide (2.3-1) UNRELEASED; urgency=low
   * Drop obsolete lintian override
   * Add Keywords to ninja-ide.desktop
 
- -- David Paleino <dapal@debian.org>  Mon, 12 Aug 2013 16:21:29 +0200
+ -- David Paleino <dapal@debian.org>  Mon, 12 Aug 2013 16:29:21 +0200
 
 ninja-ide (2.1.1+ds1-1) unstable; urgency=low
 
