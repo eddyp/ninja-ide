@@ -3,18 +3,24 @@ Subject: fix paths to point to correct locations
 Forwarded: not-needed
 
 ---
- ninja_ide/resources.py |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ ninja_ide/resources.py |  171 ++++++++++++++++++++++++-------------------------
+ 1 file changed, 85 insertions(+), 86 deletions(-)
 
 --- ninja-ide.orig/ninja_ide/resources.py
 +++ ninja-ide/ninja_ide/resources.py
-@@ -45,25 +45,25 @@ SETTINGS_PATH = os.path.join(HOME_NINJA_
+@@ -38,6 +38,7 @@ frozen = getattr(sys, 'frozen', '')
+ if frozen in ('dll', 'console_exe', 'windows_exe'):
+     # py2exe:
+     PRJ_PATH = os.path.abspath(os.path.dirname(sys.executable))
++DATA_DIR = "/usr/share/ninja-ide"
+ 
+ HOME_NINJA_PATH = os.path.join(HOME_PATH, ".ninja_ide")
+ 
+@@ -45,25 +46,23 @@ SETTINGS_PATH = os.path.join(HOME_NINJA_
  
  ADDINS = os.path.join(HOME_NINJA_PATH, "addins")
  
 -SYNTAX_FILES = os.path.join(PRJ_PATH, "addins", "syntax")
-+DATA_DIR = "/usr/share/ninja-ide"
-+
 +SYNTAX_FILES = os.path.join(DATA_DIR, "addins", "syntax")
  
  PLUGINS = os.path.join(HOME_NINJA_PATH, "addins", "plugins")
@@ -40,7 +46,7 @@ Forwarded: not-needed
  
  NINJA_THEME_DOWNLOAD = os.path.join(HOME_NINJA_PATH, "addins", "theme")
  
-@@ -71,7 +71,7 @@ LOG_FILE_PATH = os.path.join(HOME_NINJA_
+@@ -71,7 +70,7 @@ LOG_FILE_PATH = os.path.join(HOME_NINJA_
  
  GET_SYSTEM_PATH = os.path.join(PRJ_PATH, 'tools', 'get_system_path.py')
  
@@ -49,3 +55,174 @@ Forwarded: not-needed
  
  ###############################################################################
  # URLS
+@@ -97,91 +96,91 @@ PLUGINS_COMMUNITY = 'http://ninja-ide.or
+ ###############################################################################
+ 
+ IMAGES = {
+-    "splash": os.path.join(PRJ_PATH, "img", "splash.png"),
+-    "icon": os.path.join(PRJ_PATH, "img", "icon.png"),
+-    "iconUpdate": os.path.join(PRJ_PATH, "img", "icon.png"),
+-    "new": os.path.join(PRJ_PATH, "img", "document-new.png"),
+-    "newProj": os.path.join(PRJ_PATH, "img", "project-new.png"),
+-    "open": os.path.join(PRJ_PATH, "img", "document-open.png"),
+-    "openProj": os.path.join(PRJ_PATH, "img", "project-open.png"),
+-    "openFolder": os.path.join(PRJ_PATH, "img", "folder-open.png"),
+-    "save": os.path.join(PRJ_PATH, "img", "document-save.png"),
+-    "saveAs": os.path.join(PRJ_PATH, "img", "document-save-as.png"),
+-    "saveAll": os.path.join(PRJ_PATH, "img", "document-save-all.png"),
+-    "activate-profile": os.path.join(PRJ_PATH, "img", "activate_profile.png"),
+-    "deactivate-profile": os.path.join(PRJ_PATH, "img",
++    "splash": os.path.join(DATA_DIR, "img", "splash.png"),
++    "icon": os.path.join(DATA_DIR, "img", "icon.png"),
++    "iconUpdate": os.path.join(DATA_DIR, "img", "icon.png"),
++    "new": os.path.join(DATA_DIR, "img", "document-new.png"),
++    "newProj": os.path.join(DATA_DIR, "img", "project-new.png"),
++    "open": os.path.join(DATA_DIR, "img", "document-open.png"),
++    "openProj": os.path.join(DATA_DIR, "img", "project-open.png"),
++    "openFolder": os.path.join(DATA_DIR, "img", "folder-open.png"),
++    "save": os.path.join(DATA_DIR, "img", "document-save.png"),
++    "saveAs": os.path.join(DATA_DIR, "img", "document-save-as.png"),
++    "saveAll": os.path.join(DATA_DIR, "img", "document-save-all.png"),
++    "activate-profile": os.path.join(DATA_DIR, "img", "activate_profile.png"),
++    "deactivate-profile": os.path.join(DATA_DIR, "img",
+                                        "deactivate_profile.png"),
+-    "copy": os.path.join(PRJ_PATH, "img", "edit-copy.png"),
+-    "cut": os.path.join(PRJ_PATH, "img", "edit-cut.png"),
+-    "paste": os.path.join(PRJ_PATH, "img", "edit-paste.png"),
+-    "redo": os.path.join(PRJ_PATH, "img", "edit-redo.png"),
+-    "undo": os.path.join(PRJ_PATH, "img", "edit-undo.png"),
+-    "exit": os.path.join(PRJ_PATH, "img", "exit.png"),
+-    "find": os.path.join(PRJ_PATH, "img", "find.png"),
+-    "findReplace": os.path.join(PRJ_PATH, "img", "find-replace.png"),
+-    "locator": os.path.join(PRJ_PATH, "img", "locator.png"),
+-    "play": os.path.join(PRJ_PATH, "img", "play.png"),
+-    "stop": os.path.join(PRJ_PATH, "img", "stop.png"),
+-    "file-run": os.path.join(PRJ_PATH, "img", "file-run.png"),
+-    "preview-web": os.path.join(PRJ_PATH, "img", "preview_web.png"),
+-    "debug": os.path.join(PRJ_PATH, "img", "debug.png"),
+-    "designer": os.path.join(PRJ_PATH, "img", "qtdesigner.png"),
+-    "bug": os.path.join(PRJ_PATH, "img", "bug.png"),
+-    "function": os.path.join(PRJ_PATH, "img", "function.png"),
+-    "module": os.path.join(PRJ_PATH, "img", "module.png"),
+-    "class": os.path.join(PRJ_PATH, "img", "class.png"),
+-    "attribute": os.path.join(PRJ_PATH, "img", "attribute.png"),
+-    "web": os.path.join(PRJ_PATH, "img", "web.png"),
+-    "fullscreen": os.path.join(PRJ_PATH, "img", "fullscreen.png"),
+-    "follow": os.path.join(PRJ_PATH, "img", "follow.png"),
+-    "splitH": os.path.join(PRJ_PATH, "img", "split-horizontal.png"),
+-    "splitV": os.path.join(PRJ_PATH, "img", "split-vertical.png"),
+-    "zoom-in": os.path.join(PRJ_PATH, "img", "zoom_in.png"),
+-    "zoom-out": os.path.join(PRJ_PATH, "img", "zoom_out.png"),
+-    "splitCPosition": os.path.join(PRJ_PATH, "img",
++    "copy": os.path.join(DATA_DIR, "img", "edit-copy.png"),
++    "cut": os.path.join(DATA_DIR, "img", "edit-cut.png"),
++    "paste": os.path.join(DATA_DIR, "img", "edit-paste.png"),
++    "redo": os.path.join(DATA_DIR, "img", "edit-redo.png"),
++    "undo": os.path.join(DATA_DIR, "img", "edit-undo.png"),
++    "exit": os.path.join(DATA_DIR, "img", "exit.png"),
++    "find": os.path.join(DATA_DIR, "img", "find.png"),
++    "findReplace": os.path.join(DATA_DIR, "img", "find-replace.png"),
++    "locator": os.path.join(DATA_DIR, "img", "locator.png"),
++    "play": os.path.join(DATA_DIR, "img", "play.png"),
++    "stop": os.path.join(DATA_DIR, "img", "stop.png"),
++    "file-run": os.path.join(DATA_DIR, "img", "file-run.png"),
++    "preview-web": os.path.join(DATA_DIR, "img", "preview_web.png"),
++    "debug": os.path.join(DATA_DIR, "img", "debug.png"),
++    "designer": os.path.join(DATA_DIR, "img", "qtdesigner.png"),
++    "bug": os.path.join(DATA_DIR, "img", "bug.png"),
++    "function": os.path.join(DATA_DIR, "img", "function.png"),
++    "module": os.path.join(DATA_DIR, "img", "module.png"),
++    "class": os.path.join(DATA_DIR, "img", "class.png"),
++    "attribute": os.path.join(DATA_DIR, "img", "attribute.png"),
++    "web": os.path.join(DATA_DIR, "img", "web.png"),
++    "fullscreen": os.path.join(DATA_DIR, "img", "fullscreen.png"),
++    "follow": os.path.join(DATA_DIR, "img", "follow.png"),
++    "splitH": os.path.join(DATA_DIR, "img", "split-horizontal.png"),
++    "splitV": os.path.join(DATA_DIR, "img", "split-vertical.png"),
++    "zoom-in": os.path.join(DATA_DIR, "img", "zoom_in.png"),
++    "zoom-out": os.path.join(DATA_DIR, "img", "zoom_out.png"),
++    "splitCPosition": os.path.join(DATA_DIR, "img",
+                                    "panels-change-position.png"),
+-    "splitMPosition": os.path.join(PRJ_PATH, "img",
++    "splitMPosition": os.path.join(DATA_DIR, "img",
+                                    "panels-change-vertical-position.png"),
+-    "splitCRotate": os.path.join(PRJ_PATH, "img",
++    "splitCRotate": os.path.join(DATA_DIR, "img",
+                                  "panels-change-orientation.png"),
+-    "indent-less": os.path.join(PRJ_PATH, "img", "indent-less.png"),
+-    "indent-more": os.path.join(PRJ_PATH, "img", "indent-more.png"),
+-    "go-to-definition": os.path.join(PRJ_PATH, "img", "go_to_definition.png"),
+-    "insert-import": os.path.join(PRJ_PATH, "img", "insert_import.png"),
+-    "console": os.path.join(PRJ_PATH, "img", "console.png"),
+-    "pref": os.path.join(PRJ_PATH, "img", "preferences-system.png"),
+-    "tree-app": os.path.join(PRJ_PATH, "img", "tree-app.png"),
+-    "tree-code": os.path.join(PRJ_PATH, "img", "tree-code.png"),
+-    "tree-folder": os.path.join(PRJ_PATH, "img", "tree-folder.png"),
+-    "tree-html": os.path.join(PRJ_PATH, "img", "tree-html.png"),
+-    "tree-generic": os.path.join(PRJ_PATH, "img", "tree-generic.png"),
+-    "tree-css": os.path.join(PRJ_PATH, "img", "tree-CSS.png"),
+-    "tree-python": os.path.join(PRJ_PATH, "img", "tree-python.png"),
+-    "tree-image": os.path.join(PRJ_PATH, "img", "tree-image.png"),
+-    "comment-code": os.path.join(PRJ_PATH, "img", "comment-code.png"),
+-    "uncomment-code": os.path.join(PRJ_PATH, "img", "uncomment-code.png"),
+-    "reload-file": os.path.join(PRJ_PATH, "img", "reload-file.png"),
+-    "print": os.path.join(PRJ_PATH, "img", "document-print.png"),
+-    "book-left": os.path.join(PRJ_PATH, "img", "book-left.png"),
+-    "book-right": os.path.join(PRJ_PATH, "img", "book-right.png"),
+-    "break-left": os.path.join(PRJ_PATH, "img", "break-left.png"),
+-    "break-right": os.path.join(PRJ_PATH, "img", "break-right.png"),
+-    "nav-code-left": os.path.join(PRJ_PATH, "img", "nav-code-left.png"),
+-    "nav-code-right": os.path.join(PRJ_PATH, "img", "nav-code-right.png"),
+-    "locate-file": os.path.join(PRJ_PATH, "img", "locate-file.png"),
+-    "locate-class": os.path.join(PRJ_PATH, "img", "locate-class.png"),
+-    "locate-function": os.path.join(PRJ_PATH, "img", "locate-function.png"),
+-    "locate-attributes": os.path.join(PRJ_PATH, "img",
++    "indent-less": os.path.join(DATA_DIR, "img", "indent-less.png"),
++    "indent-more": os.path.join(DATA_DIR, "img", "indent-more.png"),
++    "go-to-definition": os.path.join(DATA_DIR, "img", "go_to_definition.png"),
++    "insert-import": os.path.join(DATA_DIR, "img", "insert_import.png"),
++    "console": os.path.join(DATA_DIR, "img", "console.png"),
++    "pref": os.path.join(DATA_DIR, "img", "preferences-system.png"),
++    "tree-app": os.path.join(DATA_DIR, "img", "tree-app.png"),
++    "tree-code": os.path.join(DATA_DIR, "img", "tree-code.png"),
++    "tree-folder": os.path.join(DATA_DIR, "img", "tree-folder.png"),
++    "tree-html": os.path.join(DATA_DIR, "img", "tree-html.png"),
++    "tree-generic": os.path.join(DATA_DIR, "img", "tree-generic.png"),
++    "tree-css": os.path.join(DATA_DIR, "img", "tree-CSS.png"),
++    "tree-python": os.path.join(DATA_DIR, "img", "tree-python.png"),
++    "tree-image": os.path.join(DATA_DIR, "img", "tree-image.png"),
++    "comment-code": os.path.join(DATA_DIR, "img", "comment-code.png"),
++    "uncomment-code": os.path.join(DATA_DIR, "img", "uncomment-code.png"),
++    "reload-file": os.path.join(DATA_DIR, "img", "reload-file.png"),
++    "print": os.path.join(DATA_DIR, "img", "document-print.png"),
++    "book-left": os.path.join(DATA_DIR, "img", "book-left.png"),
++    "book-right": os.path.join(DATA_DIR, "img", "book-right.png"),
++    "break-left": os.path.join(DATA_DIR, "img", "break-left.png"),
++    "break-right": os.path.join(DATA_DIR, "img", "break-right.png"),
++    "nav-code-left": os.path.join(DATA_DIR, "img", "nav-code-left.png"),
++    "nav-code-right": os.path.join(DATA_DIR, "img", "nav-code-right.png"),
++    "locate-file": os.path.join(DATA_DIR, "img", "locate-file.png"),
++    "locate-class": os.path.join(DATA_DIR, "img", "locate-class.png"),
++    "locate-function": os.path.join(DATA_DIR, "img", "locate-function.png"),
++    "locate-attributes": os.path.join(DATA_DIR, "img",
+                                       "locate-attributes.png"),
+-    "locate-nonpython": os.path.join(PRJ_PATH, "img", "locate-nonpython.png"),
+-    "locate-on-this-file": os.path.join(PRJ_PATH, "img",
++    "locate-nonpython": os.path.join(DATA_DIR, "img", "locate-nonpython.png"),
++    "locate-on-this-file": os.path.join(DATA_DIR, "img",
+                                         "locate-on-this-file.png"),
+-    "locate-tab": os.path.join(PRJ_PATH, "img", "locate-tab.png"),
+-    "locate-line": os.path.join(PRJ_PATH, "img", "locate-line.png"),
+-    "add": os.path.join(PRJ_PATH, "img", "add.png"),
+-    "delete": os.path.join(PRJ_PATH, "img", "delete.png"),
+-    "loading": os.path.join(PRJ_PATH, "img", "loading.gif"),
+-    "separator": os.path.join(PRJ_PATH, "img", "separator.png")}
++    "locate-tab": os.path.join(DATA_DIR, "img", "locate-tab.png"),
++    "locate-line": os.path.join(DATA_DIR, "img", "locate-line.png"),
++    "add": os.path.join(DATA_DIR, "img", "add.png"),
++    "delete": os.path.join(DATA_DIR, "img", "delete.png"),
++    "loading": os.path.join(DATA_DIR, "img", "loading.gif"),
++    "separator": os.path.join(DATA_DIR, "img", "separator.png")}
+ 
+ 
+ ###############################################################################

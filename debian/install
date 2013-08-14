@@ -1,8 +1,6 @@
 ninja_ide/addins/ /usr/share/ninja-ide/
-
-icon.png	/usr/share/ninja-ide/img/
-
 ninja-ide.py	/usr/share/ninja-ide/
 ninja_ide		/usr/share/ninja-ide/
+ninja_ide/img/	/usr/share/ninja-ide/
 
 debian/ninja-ide.desktop	/usr/share/applications/
