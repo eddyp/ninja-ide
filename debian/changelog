@@ -1,4 +1,4 @@
-ninja-ide (2.3-2) UNRELEASED; urgency=low
+ninja-ide (2.3-2) unstable; urgency=low
 
   * Fix addins/ location, and make runtime-data-patch more robust
   * Also moved img/ under /usr/share/ninja-ide/
@@ -11,7 +11,7 @@ ninja-ide (2.3-2) UNRELEASED; urgency=low
     upstream behaviour.
   * Remove obsolete dependencies on jQuery and Modernizr
 
- -- David Paleino <dapal@debian.org>  Wed, 14 Aug 2013 11:56:24 +0200
+ -- David Paleino <dapal@debian.org>  Wed, 14 Aug 2013 11:56:41 +0200
 
 ninja-ide (2.3-1) unstable; urgency=low
 
