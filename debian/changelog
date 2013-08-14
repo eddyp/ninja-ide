@@ -5,8 +5,12 @@ ninja-ide (2.3-2) UNRELEASED; urgency=low
   * Directly install ninja-ide.py to /usr/bin, instead of making a symlink
   * Updated debian/copyright
   * Drop repackaging targets from debian/rules
+  * 01-use_system_pyflakes.patch dropped: upstream is using a forked
+    customized version of pyflakes. Since there are no licensing issues,
+    I'm including it in the package, so as to avoid differences with
+    upstream behaviour.
 
- -- David Paleino <dapal@debian.org>  Wed, 14 Aug 2013 11:52:31 +0200
+ -- David Paleino <dapal@debian.org>  Wed, 14 Aug 2013 11:54:25 +0200
 
 ninja-ide (2.3-1) unstable; urgency=low
 
