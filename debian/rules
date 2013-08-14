@@ -4,12 +4,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-ifndef UPVER
-UPVER := $(shell dpkg-parsechangelog | grep ^Version | cut -d\  -f2 | cut -d- -f1)
-endif
-
-DEBVER := $(UPVER)+ds1
-
 %:
 	dh $@ \
 		--with python2
@@ -24,20 +18,3 @@ override_dh_install:
 override_dh_clean:
 	dh_clean
 	rm -rf NINJA_IDE.egg-info/
-
-get-orig-source:
-	uscan \
-		--verbose \
-		--force-download \
-		--download-version $(UPVER) \
-		--rename \
-		--repack \
-		--destdir .
-
-	tar xvf ninja-ide_$(UPVER).orig.tar.gz
-	rm -rf ninja-ide-ninja-ide-*/ninja_ide/dependencies/pyflakes/
-	rm -rf ninja-ide-ninja-ide-*/ninja_ide/doc/js/
-
-	tar cf ninja-ide_$(DEBVER).orig.tar ninja-ide-ninja-ide-*/
-	bzip2 -9 ninja-ide_$(DEBVER).orig.tar
-	rm -rf ninja-ide-ninja-ide-*/ ninja-ide_$(UPVER).orig.tar.gz

@@ -4,8 +4,9 @@ ninja-ide (2.3-2) UNRELEASED; urgency=low
   * Also moved img/ under /usr/share/ninja-ide/
   * Directly install ninja-ide.py to /usr/bin, instead of making a symlink
   * Updated debian/copyright
+  * Drop repackaging targets from debian/rules
 
- -- David Paleino <dapal@debian.org>  Wed, 14 Aug 2013 11:52:07 +0200
+ -- David Paleino <dapal@debian.org>  Wed, 14 Aug 2013 11:52:31 +0200
 
 ninja-ide (2.3-1) unstable; urgency=low
 
