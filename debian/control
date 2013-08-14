@@ -20,8 +20,6 @@ Depends: ${misc:Depends}
  , ${python:Depends}
  , python-qt4 (>= 4.8)
  , python-pyinotify
- , libjs-jquery
- , libjs-modernizr
 Description: integrated development environment (IDE) for Python
  NINJA-IDE is a cross-platform integrated development environment (IDE).
  It currently features:
