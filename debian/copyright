@@ -3,16 +3,24 @@ Upstream-Name: ninja-ide
 Source: https://github.com/ninja-ide/ninja-ide
 
 Files: *
-Copyright: © 2011-2012, The Ninja-IDE Team <ninja-ide@googlegroups.com>
+Copyright: © 2011-2013, The Ninja-IDE Team <ninja-ide@googlegroups.com>
 License: GPL-3+
 
 Files: debian/*
-Copyright: © 2011-2012, David Paleino <dapal@debian.org>
+Copyright: © 2011-2013, David Paleino <dapal@debian.org>
 License: GPL-3+
 
 Files: ninja_ide/dependencies/pep8mod.py
 Copyright: © 2006, Johann C. Rocholl <johann@rocholl.net>
 License: MIT
+
+Files: ninja_ide/dependencies/pyflakes_mod/*
+Copyright: © 2005-2008, Divmod, Inc.
+ © 2011-2013, The Ninja-IDE Team <ninja-ide@googlegroups.com>
+License: MIT
+X-Comment: this is a fork from official PyFlakes, customized for
+ NINJA-IDE. See
+ https://github.com/eddyp/ninja-ide/commits/master/ninja_ide/dependencies/pyflakes_mod/checker.py
 
 License: GPL-3+
  This program is free software: you can redistribute it and/or modify
