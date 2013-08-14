@@ -16,7 +16,8 @@ DEBVER := $(UPVER)+ds1
 
 override_dh_install:
 	dh_install
-	rm -rf $(CURDIR)/debian/ninja-ide/usr/share/ninja-ide/ninja_ide/doc/
+	mv $(CURDIR)/debian/ninja-ide/usr/bin/ninja-ide.py \
+		$(CURDIR)/debian/ninja-ide/usr/bin/ninja-ide
 	rm -rf $(CURDIR)/debian/ninja-ide/usr/lib/python*/*-packages/ninja_tests/
 	rm -rf $(CURDIR)/debian/ninja-ide/usr/lib/python*/*-packages/NINJA_IDE*.egg-info/
 
