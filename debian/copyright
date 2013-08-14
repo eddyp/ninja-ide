@@ -20,7 +20,7 @@ Copyright: © 2005-2008, Divmod, Inc.
 License: MIT
 X-Comment: this is a fork from official PyFlakes, customized for
  NINJA-IDE. See
- https://github.com/eddyp/ninja-ide/commits/master/ninja_ide/dependencies/pyflakes_mod/checker.py
+ https://github.com/eddyp/ninja-ide/commits/master/ninja_ide/dependencies/pyflakes_mod/
 
 License: GPL-3+
  This program is free software: you can redistribute it and/or modify
